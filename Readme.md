@@ -29,6 +29,10 @@ what I did in the third week
 - Researched about the libraries that will be used in addition to signal library and how they will be integrated with project security
 - Setup the project with the signal library and other libraries that will be used in the project
 
+# Week 4
+what I did in the fourth week
+- Refactored project configuration and added application profiles for development and production (Claude Code)
+
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
 
@@ -39,6 +43,7 @@ what I did in the third week
 Commit 1: Intial Repo setup to share with mentor and to start the project
 Commit 2: Week 1 work done, added claude chat links where I would be discussing about project with Claude AI
 Commit 3: Setup the project with signal library and other libraries that will be used in the project
+Commit 4: Refactor project configuration and add application profiles for development and production (Claude Code)
 
 
 # General References
