@@ -29,10 +29,10 @@
 	<properties>
 		<java.version>25</java.version>
 
-		<!-- Signal Protocol — official Signal library.
-             Server/desktop build (not the Android variant).
+		<!-- Signal Protocol — official Signal library (org.whispersystems:signal-client-java).
+             Server build, not the Android variant.
              Check https://github.com/signalapp/libsignal for latest. -->
-		<libsignal.version>0.55.0</libsignal.version>
+		<signal.version>0.14.0</signal.version>
 
 		<!-- JWT — JJWT 0.12.x is the modern API (no deprecated classes) -->
 		<jjwt.version>0.12.6</jjwt.version>
@@ -80,6 +80,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-flyway</artifactId>
 		</dependency>
+		<!-- Flyway 10+ split DB support into per-database modules; the starter ships only
+		     flyway-core, so PostgreSQL support must be added explicitly. Version managed by SB4. -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-websocket</artifactId>
@@ -99,7 +105,8 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
-			<scope>annotationProcessor</scope>
+			<scope>provided</scope>
+			<optional>true</optional>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.security</groupId>
@@ -143,14 +150,7 @@
 		<dependency>
 			<groupId>org.whispersystems</groupId>
 			<artifactId>signal-client-java</artifactId>
-			<version>0.14.0</version>
-		</dependency>
-
-
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-aop</artifactId>
-			<version>3.5.6</version>
+			<version>${signal.version}</version>
 		</dependency>
 
 
@@ -170,6 +170,21 @@
 
 	<build>
 		<plugins>
+			<!-- On Java 23+ annotation processors on the classpath are no longer run implicitly,
+			     so Lombok (and MapStruct, later) must be declared as explicit processor paths. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

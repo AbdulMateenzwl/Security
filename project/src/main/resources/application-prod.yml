@@ -1,0 +1,20 @@
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.security.project: INFO
+    org.springframework.security: WARN
+
+app:
+  jwt:
+    # In production the RSA key pair MUST be provided via environment variables.
+    # If they are absent the application must fail fast rather than fall back to
+    # an ephemeral key (enforced in JwtKeyConfig).
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
+  security:
+    allowed-origins:
+      - ${FRONTEND_ORIGIN:https://securechat.example.com}

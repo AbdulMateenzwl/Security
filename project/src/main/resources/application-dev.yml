@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    show-sql: true                 # dev only — convenient, but leaks query shape; never in prod
+
+logging:
+  level:
+    com.security.project: DEBUG
+    org.springframework.security: DEBUG
+
+app:
+  security:
+    # Broader CORS for local frontend development
+    allowed-origins:
+      - http://localhost:4200
+      - http://localhost:3000
