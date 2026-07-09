@@ -32,6 +32,8 @@ what I did in the third week
 # Week 4
 what I did in the fourth week
 - Refactored project configuration and added application profiles for development and production (Claude Code)
+- Add JWT and security configuration classes with properties support
+- Add custom exception classes for error handling in the application
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -44,6 +46,8 @@ Commit 1: Intial Repo setup to share with mentor and to start the project
 Commit 2: Week 1 work done, added claude chat links where I would be discussing about project with Claude AI
 Commit 3: Setup the project with signal library and other libraries that will be used in the project
 Commit 4: Refactor project configuration and add application profiles for development and production (Claude Code)
+Commit 5: Add JWT and security configuration classes with properties support
+Commit 6: Add custom exception classes for error handling in the application
 
 
 # General References
