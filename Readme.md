@@ -47,6 +47,9 @@ what I did in the fifth week
 - Implement the Message domain: send end-to-end encrypted messages (ciphertext stored/forwarded as an opaque blob, never decrypted), cursor-paginated history (newest first, by created_at + id), delivery/read receipts with a forward-only status rollup, and sender-only delete. Disappearing messages get an expires_at and are excluded from history once expired. (AI Help from Claude code)
 - Implement the Task domain: in-chat collaboration boards with tasks (status, priority, assignee, due date, labels), a kanban board view grouped by status, list filtering by status/assignee, and a full activity log that automatically records every change (created, status/priority/title/description/due-date changes, and assignment). Any chat member can create and update tasks; only the creator or a chat admin can delete. All authorization is enforced in the service layer. (AI Help from Claude code)
 
+# Week 7
+- Implement realtime messaging over WebSocket (STOMP): clients connect to /ws authenticating with their JWT as a query parameter, then subscribe to per-chat topics. Messages sent over the socket are persisted and instantly fanned out to everyone in the chat; typing indicators and task-change events are also broadcast. Every WebSocket connection is authenticated at CONNECT (access token + active session) and every subscription is authorized — you can only subscribe to chats you belong to, or your own personal channel — with unauthorized attempts rejected via a STOMP ERROR frame. (AI Help from Claude code)
+
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
 - [libsignal (Signal Protocol)](https://github.com/signalapp/libsignal)
@@ -69,6 +72,7 @@ Commit 11: Implement message handling with DTOs, entity definitions, and databas
 Commit 12: Implement the Message domain — send encrypted messages, cursor-paginated history, delivery/read receipts, sender-only delete, and disappearing-message expiry
 Commit 13: Implement task management domain with entities, DTOs, and database migration for in-chat collaboration, including task creation, updates, activity logging, and priority/status handling.
 Commit 14: Implement the Task domain — in-chat tasks with status/priority/assignee/labels, kanban board, list filters, and an automatic activity log, with service-layer authorization
+Commit 15: Implement realtime messaging over WebSocket/STOMP — JWT-authenticated handshake, per-subscription authorization, live message/typing/task broadcast
 
 # General References
 
