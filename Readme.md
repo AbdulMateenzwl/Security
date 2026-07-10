@@ -42,6 +42,10 @@ what I did in the fifth week
 - Implement Signal key management: store public identity keys, signed pre-keys and one-time pre-keys, and serve pre-key bundles so peers can start end-to-end encrypted sessions. One-time pre-keys are consumed atomically (FOR UPDATE SKIP LOCKED) so no two sessions ever reuse the same key. Server stays a blind relay — public keys only, never verified or decrypted. (AI Help from Claude code)
 - Implement the Chat domain: create DIRECT and GROUP chats, list/get chats, update group info, add/remove members, and set a disappearing-message timer. All authorization (membership + ADMIN role) is enforced in the service layer, returning 403 (never 404) so chat existence is never leaked. (AI Help from Claude code)
 
+# Week 6
+- Implement message handling with DTOs, entity definitions, and database migration for chat functionality, including message status and receipts.
+- Implement the Message domain: send end-to-end encrypted messages (ciphertext stored/forwarded as an opaque blob, never decrypted), cursor-paginated history (newest first, by created_at + id), delivery/read receipts with a forward-only status rollup, and sender-only delete. Disappearing messages get an expires_at and are excluded from history once expired. (AI Help from Claude code)
+
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
 - [libsignal (Signal Protocol)](https://github.com/signalapp/libsignal)
@@ -60,7 +64,8 @@ Commit 7: Implement JWT authentication with access and refresh token support, in
 Commit 8: Implement user authentication and session management with JWT support, including user registration, login, and session handling
 Commit 9: Implement Signal key management — identity keys, signed pre-keys, one-time pre-keys, and pre-key bundle distribution with atomic OTPK consumption
 Commit 10: Implement the Chat domain — DIRECT/GROUP chats, membership and admin roles, member management, and disappearing-message timer, with service-layer authorization
-
+Commit 11: Implement message handling with DTOs, entity definitions, and database migration for chat functionality, including message status and receipts.
+Commit 12: Implement the Message domain — send encrypted messages, cursor-paginated history, delivery/read receipts, sender-only delete, and disappearing-message expiry
 
 # General References
 
