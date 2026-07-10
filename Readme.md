@@ -39,9 +39,11 @@ what I did in the fourth week
 # Week 5
 what I did in the fifth week
 - Implement user authentication and session management with JWT support, including user registration, login, and session handling (AI Help from Claude code)
+- Implement Signal key management: store public identity keys, signed pre-keys and one-time pre-keys, and serve pre-key bundles so peers can start end-to-end encrypted sessions. One-time pre-keys are consumed atomically (FOR UPDATE SKIP LOCKED) so no two sessions ever reuse the same key. Server stays a blind relay — public keys only, never verified or decrypted. (AI Help from Claude code)
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
+- [libsignal (Signal Protocol)](https://github.com/signalapp/libsignal)
 
 
 
@@ -55,6 +57,7 @@ Commit 5: Add JWT and security configuration classes with properties support
 Commit 6: Add custom exception classes for error handling in the application
 Commit 7: Implement JWT authentication with access and refresh token support, including user session management and error handling 
 Commit 8: Implement user authentication and session management with JWT support, including user registration, login, and session handling
+Commit 9: Implement Signal key management — identity keys, signed pre-keys, one-time pre-keys, and pre-key bundle distribution with atomic OTPK consumption
 
 
 # General References
