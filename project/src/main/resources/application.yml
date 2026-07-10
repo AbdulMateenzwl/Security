@@ -55,6 +55,27 @@ app:
     access-expiration-ms: 900000       # 15 minutes — short-lived access token
     refresh-expiration-ms: 604800000   # 7 days — refresh token
 
+  # Redis-backed rate limits (Bucket4j). capacity = burst; refill-tokens over
+  # refill-duration-seconds = sustained rate. Buckets are keyed per user (or per
+  # IP for the unauthenticated login/register endpoints).
+  rate-limit:
+    login:
+      capacity: 5
+      refill-tokens: 5
+      refill-duration-seconds: 900       # 5 attempts per 15 minutes, per IP
+    register:
+      capacity: 3
+      refill-tokens: 3
+      refill-duration-seconds: 3600      # 3 per hour, per IP
+    message-send:
+      capacity: 60
+      refill-tokens: 60
+      refill-duration-seconds: 60        # 60 messages per minute, per user
+    pre-key-fetch:
+      capacity: 10
+      refill-tokens: 10
+      refill-duration-seconds: 3600      # 10 pre-key bundle fetches per hour, per user
+
   security:
     max-failed-login-attempts: 5
     account-lock-duration-minutes: 30

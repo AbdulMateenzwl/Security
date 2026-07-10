@@ -17,8 +17,13 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.security.project.config.properties.AppSecurityProperties;
+import com.security.project.config.properties.RateLimitProperties;
 import com.security.project.security.jwt.JwtAuthEntryPoint;
 import com.security.project.security.jwt.JwtAuthenticationFilter;
+import com.security.project.security.ratelimit.RateLimitFilter;
+
+import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Core HTTP security configuration.
@@ -50,7 +55,15 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           LettuceBasedProxyManager<byte[]> rateLimitProxyManager,
+                                           RateLimitProperties rateLimitProperties,
+                                           ObjectMapper objectMapper) throws Exception {
+        // Constructed here (not a bean) so it lives only in the security chain — after the JWT filter,
+        // so the authenticated user is available for per-user limits — and is never auto-registered
+        // by Boot as a stand-alone servlet filter.
+        RateLimitFilter rateLimitFilter =
+                new RateLimitFilter(rateLimitProxyManager, rateLimitProperties, objectMapper);
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // Stateless JWT auth — no session cookie, so CSRF does not apply.
@@ -68,7 +81,8 @@ public class SecurityConfig {
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31_536_000)))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
