@@ -45,6 +45,7 @@ what I did in the fifth week
 # Week 6
 - Implement message handling with DTOs, entity definitions, and database migration for chat functionality, including message status and receipts.
 - Implement the Message domain: send end-to-end encrypted messages (ciphertext stored/forwarded as an opaque blob, never decrypted), cursor-paginated history (newest first, by created_at + id), delivery/read receipts with a forward-only status rollup, and sender-only delete. Disappearing messages get an expires_at and are excluded from history once expired. (AI Help from Claude code)
+- Implement the Task domain: in-chat collaboration boards with tasks (status, priority, assignee, due date, labels), a kanban board view grouped by status, list filtering by status/assignee, and a full activity log that automatically records every change (created, status/priority/title/description/due-date changes, and assignment). Any chat member can create and update tasks; only the creator or a chat admin can delete. All authorization is enforced in the service layer. (AI Help from Claude code)
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -66,6 +67,8 @@ Commit 9: Implement Signal key management — identity keys, signed pre-keys, on
 Commit 10: Implement the Chat domain — DIRECT/GROUP chats, membership and admin roles, member management, and disappearing-message timer, with service-layer authorization
 Commit 11: Implement message handling with DTOs, entity definitions, and database migration for chat functionality, including message status and receipts.
 Commit 12: Implement the Message domain — send encrypted messages, cursor-paginated history, delivery/read receipts, sender-only delete, and disappearing-message expiry
+Commit 13: Implement task management domain with entities, DTOs, and database migration for in-chat collaboration, including task creation, updates, activity logging, and priority/status handling.
+Commit 14: Implement the Task domain — in-chat tasks with status/priority/assignee/labels, kanban board, list filters, and an automatic activity log, with service-layer authorization
 
 # General References
 
