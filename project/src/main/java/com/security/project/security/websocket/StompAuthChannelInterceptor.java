@@ -15,7 +15,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import com.security.project.domain.chat.repository.ChatMemberRepository;
+import com.security.project.domain.chat.service.ChatAccessGuard;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.entity.UserSession;
 import com.security.project.domain.user.repository.UserRepository;
@@ -46,16 +46,16 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtTokenProvider tokenProvider;
     private final UserSessionRepository sessionRepository;
     private final UserRepository userRepository;
-    private final ChatMemberRepository chatMemberRepository;
+    private final ChatAccessGuard chatAccessGuard;
 
     public StompAuthChannelInterceptor(JwtTokenProvider tokenProvider,
                                        UserSessionRepository sessionRepository,
                                        UserRepository userRepository,
-                                       ChatMemberRepository chatMemberRepository) {
+                                       ChatAccessGuard chatAccessGuard) {
         this.tokenProvider = tokenProvider;
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
-        this.chatMemberRepository = chatMemberRepository;
+        this.chatAccessGuard = chatAccessGuard;
     }
 
     @Override
@@ -94,6 +94,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             if (user.isAccountLocked()) {
                 throw new MessagingException("Account locked");
             }
+            // The token is only needed to authenticate CONNECT. Drop it from the session so it can
+            // never leak — e.g. into a logged message dump when a later frame fails.
+            attrs.remove(JwtHandshakeInterceptor.TOKEN_ATTRIBUTE);
             // Principal name = user id, which @MessageMapping handlers and subscription checks read.
             return new UsernamePasswordAuthenticationToken(
                     user.getId().toString(), null, user.getAuthorities());
@@ -123,7 +126,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private void requireMembership(UUID chatId, UUID userId) {
-        if (!chatMemberRepository.existsByChatIdAndUserId(chatId, userId)) {
+        if (!chatAccessGuard.isMember(chatId, userId)) {
             throw new MessagingException("Not a member of this chat");
         }
     }

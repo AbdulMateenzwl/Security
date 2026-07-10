@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.security.project.domain.user.entity.User;
+import com.security.project.exception.ResourceNotFoundException;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
@@ -16,4 +17,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    /** Fetch a user by id or throw a 404-mapped {@link ResourceNotFoundException}. */
+    default User getByIdOrThrow(UUID id) {
+        return findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
 }

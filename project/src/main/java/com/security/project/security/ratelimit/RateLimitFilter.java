@@ -1,26 +1,19 @@
 package com.security.project.security.ratelimit;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.security.project.config.properties.RateLimitProperties;
 import com.security.project.config.properties.RateLimitProperties.Limit;
 import com.security.project.domain.user.entity.User;
 import com.security.project.exception.ErrorResponse;
+import com.security.project.security.HttpRequestUtils;
 
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.ConsumptionProbe;
-import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,14 +33,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Fallback for any other authenticated {@code /api/**} endpoint: 200 requests/minute per user. */
     private static final Limit DEFAULT_LIMIT = new Limit(200, 200, 60);
 
-    private final LettuceBasedProxyManager<byte[]> proxyManager;
+    private final RateLimiterService rateLimiter;
     private final RateLimitProperties props;
     private final ObjectMapper objectMapper;
 
-    public RateLimitFilter(LettuceBasedProxyManager<byte[]> proxyManager,
+    public RateLimitFilter(RateLimiterService rateLimiter,
                            RateLimitProperties props,
                            ObjectMapper objectMapper) {
-        this.proxyManager = proxyManager;
+        this.rateLimiter = rateLimiter;
         this.props = props;
         this.objectMapper = objectMapper;
     }
@@ -66,9 +59,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String key = "rate:" + rule.name() + ":" + rule.identity();
-        Bucket bucket = proxyManager.builder().build(key.getBytes(StandardCharsets.UTF_8), configFor(rule.limit()));
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+        ConsumptionProbe probe = rateLimiter.tryConsume(rule.name(), rule.identity(), rule.limit());
 
         response.setHeader("X-RateLimit-Limit", Integer.toString(rule.limit().capacity()));
         if (probe.isConsumed()) {
@@ -91,10 +82,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String method = request.getMethod();
 
         if ("POST".equals(method) && "/api/auth/login".equals(uri)) {
-            return new Rule("login", props.login(), clientIp(request));
+            return new Rule("login", props.login(), HttpRequestUtils.clientIp(request));
         }
         if ("POST".equals(method) && "/api/auth/register".equals(uri)) {
-            return new Rule("register", props.register(), clientIp(request));
+            return new Rule("register", props.register(), HttpRequestUtils.clientIp(request));
         }
 
         UUID userId = currentUserId();
@@ -113,29 +104,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return null;
     }
 
-    private Supplier<BucketConfiguration> configFor(Limit limit) {
-        return () -> BucketConfiguration.builder()
-                .addLimit(Bandwidth.builder()
-                        .capacity(limit.capacity())
-                        .refillGreedy(limit.refillTokens(), Duration.ofSeconds(limit.refillDurationSeconds()))
-                        .build())
-                .build();
-    }
-
     private UUID currentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user) {
             return user.getId();
         }
         return null;
-    }
-
-    /** Client IP, honouring X-Forwarded-For (first hop) behind a proxy, else the socket address. */
-    private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwarded)) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 }

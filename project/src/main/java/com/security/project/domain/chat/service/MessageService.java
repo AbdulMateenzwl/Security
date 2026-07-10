@@ -19,7 +19,6 @@ import com.security.project.domain.chat.entity.Message;
 import com.security.project.domain.chat.entity.MessageReceipt;
 import com.security.project.domain.chat.entity.MessageStatus;
 import com.security.project.domain.chat.entity.ReceiptType;
-import com.security.project.domain.chat.repository.ChatMemberRepository;
 import com.security.project.domain.chat.repository.ChatRepository;
 import com.security.project.domain.chat.repository.MessageReceiptRepository;
 import com.security.project.domain.chat.repository.MessageRepository;
@@ -42,30 +41,29 @@ public class MessageService {
     private static final Logger log = LoggerFactory.getLogger(MessageService.class);
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final int DEFAULT_PAGE_SIZE = 30;
 
     private final MessageRepository messageRepository;
     private final MessageReceiptRepository receiptRepository;
     private final ChatRepository chatRepository;
-    private final ChatMemberRepository chatMemberRepository;
+    private final ChatAccessGuard chatAccessGuard;
     private final UserRepository userRepository;
 
     public MessageService(MessageRepository messageRepository,
                           MessageReceiptRepository receiptRepository,
                           ChatRepository chatRepository,
-                          ChatMemberRepository chatMemberRepository,
+                          ChatAccessGuard chatAccessGuard,
                           UserRepository userRepository) {
         this.messageRepository = messageRepository;
         this.receiptRepository = receiptRepository;
         this.chatRepository = chatRepository;
-        this.chatMemberRepository = chatMemberRepository;
+        this.chatAccessGuard = chatAccessGuard;
         this.userRepository = userRepository;
     }
 
     /** Send an encrypted message to a chat the caller belongs to. */
     @Transactional
     public MessageDto sendMessage(UUID senderId, UUID chatId, SendMessageRequest req) {
-        requireMembership(chatId, senderId);
+        chatAccessGuard.requireMember(chatId, senderId);
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat not found"));
 
@@ -101,7 +99,7 @@ public class MessageService {
      */
     @Transactional(readOnly = true)
     public List<MessageDto> getMessages(UUID userId, UUID chatId, UUID before, int limit) {
-        requireMembership(chatId, userId);
+        chatAccessGuard.requireMember(chatId, userId);
         int size = Math.clamp(limit, 1, MAX_PAGE_SIZE);
         Instant now = Instant.now();
 
@@ -127,7 +125,7 @@ public class MessageService {
     public void updateStatus(UUID userId, UUID messageId, ReceiptType receiptType) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
-        requireMembership(message.getChat().getId(), userId);
+        chatAccessGuard.requireMember(message.getChat().getId(), userId);
         if (message.getSender().getId().equals(userId)) {
             throw new BadRequestException("Cannot mark your own message as delivered or read");
         }
@@ -157,11 +155,5 @@ public class MessageService {
         }
         messageRepository.delete(message);
         log.info("Message id={} deleted by sender id={}", messageId, userId);
-    }
-
-    private void requireMembership(UUID chatId, UUID userId) {
-        if (!chatMemberRepository.existsByChatIdAndUserId(chatId, userId)) {
-            throw new AccessDeniedException("Not a member of this chat");
-        }
     }
 }

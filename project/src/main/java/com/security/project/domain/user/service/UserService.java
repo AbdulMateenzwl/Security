@@ -17,7 +17,6 @@ import com.security.project.domain.user.dto.RegisterRequest;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.repository.UserRepository;
 import com.security.project.exception.DuplicateResourceException;
-import com.security.project.exception.ResourceNotFoundException;
 
 /**
  * User lifecycle and brute-force protection.
@@ -67,8 +66,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public User getById(UUID id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return userRepository.getByIdOrThrow(id);
     }
 
     /**

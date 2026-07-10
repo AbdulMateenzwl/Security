@@ -52,6 +52,12 @@ what I did in the fifth week
 - Implement Redis-backed rate limiting (Bucket4j): per-endpoint token buckets that survive restarts and are shared across instances. Login (5/15min) and registration (3/hour) are limited per client IP to blunt brute-force and abuse; message send (60/min) and pre-key bundle fetch (10/hour) are limited per user, with a 200/min default for other authenticated endpoints. Exceeding a limit returns 429 with Retry-After and X-RateLimit-* headers. (AI Help from Claude code)
 - Implement the disappearing-message cleanup job: a scheduled task (cron-driven) that hard-deletes messages past their expiry so ciphertext does not linger on disk. Receipts are removed automatically via the database cascade, and replies to a deleted message are safely nulled. History already hides expired messages, so this is the durable backstop. (AI Help from Claude code)
 - Implement the identity-key fingerprint (safety number) endpoint: GET /api/users/{userId}/fingerprint returns the hex fingerprint of a user's public identity key so clients can compare it out-of-band and detect a man-in-the-middle. Also hardened error handling so malformed path/query parameters (e.g. a bad UUID or unknown enum) return 400 instead of 500 across the whole API. (AI Help from Claude code)
+- Cleanup: removed unused build dependencies (the server-side Signal library, which the blind-relay server never calls, and MapStruct, which was never wired up) plus their orphan version properties. Smaller, clearer build with no behaviour change. (AI Help from Claude code)
+- Refactor: extracted a single ChatAccessGuard that owns the "is this user a member / an admin of this chat?" rule, which was previously duplicated across the chat, message and task services and the WebSocket layer. The message, task and WebSocket components no longer inject the membership repository directly, and the authorization rule now lives in exactly one place so it can never drift. All 70 authorization smoke-test assertions still pass unchanged. (AI Help from Claude code)
+- More cleanup: de-duplicated the "load user or 404" helper (now a single repository method) and the client-IP extraction (now a shared util), used across the services, auth controller and rate-limit filter. (AI Help from Claude code)
+- Performance: eliminated N+1 queries — the chat-list screen now loads every chat's members in one batched query, and task labels load in batches (Hibernate @BatchSize) instead of one query per task. (AI Help from Claude code)
+- Hardening: WebSocket message sends are now rate-limited too, sharing the same per-user bucket as the REST endpoint so the 60/min limit is unified across both transports; inbound WebSocket payloads are validated (reject missing chat id / empty ciphertext); and the JWT is dropped from the WebSocket session once the connection is authenticated so it can never leak into a logged message frame. (AI Help from Claude code)
+- Testing: added the first real unit-test suite (JUnit 5 + Mockito) covering the authorization guard, the message delivery/receipt rules, chat-creation validation, and task creation with its activity log — including a regression test for the "task must set its creator" bug found earlier. (AI Help from Claude code)
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -79,6 +85,12 @@ Commit 15: Implement realtime messaging over WebSocket/STOMP — JWT-authenticat
 Commit 16: Implement Redis-backed per-endpoint rate limiting (Bucket4j) — per-IP login/register and per-user message/pre-key limits, 429 with Retry-After and X-RateLimit headers
 Commit 17: Implement the disappearing-message cleanup job — scheduled hard-delete of expired messages with cascading receipt removal
 Commit 18: Implement the identity-key fingerprint (safety number) endpoint, and return 400 (not 500) for malformed path/query parameters app-wide
+Commit 19: Remove unused dependencies (signal-client-java, MapStruct) and orphan version properties
+Commit 20: Extract ChatAccessGuard to centralize chat membership/admin authorization across services and the WebSocket layer
+Commit 21: De-duplicate the load-user-or-404 and client-IP helpers into shared code
+Commit 22: Fix N+1 queries in chat listing and task labels (batched member load + @BatchSize)
+Commit 23: Rate-limit and validate WebSocket message sends (shared per-user bucket, payload validation) and stop the JWT leaking into logged frames
+Commit 24: Add JUnit 5 + Mockito unit tests for authorization, message, chat and task service logic
 
 # General References
 

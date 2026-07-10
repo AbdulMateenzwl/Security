@@ -2,7 +2,7 @@ package com.security.project.domain.chat.dto;
 
 import java.util.UUID;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 
 /**
  * Send an encrypted message to a chat.
@@ -12,7 +12,7 @@ import jakarta.validation.constraints.NotNull;
  * @param replyToMessageId  optional id of the message being replied to (must be in the same chat)
  */
 public record SendMessageRequest(
-        @NotNull
+        @NotEmpty
         byte[] ciphertext,
 
         int ciphertextType,

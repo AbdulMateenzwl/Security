@@ -2,6 +2,8 @@ package com.security.project.domain.websocket.dto;
 
 import java.util.UUID;
 
+import jakarta.validation.constraints.NotNull;
+
 /**
  * Realtime task-change notification for {@code SEND /app/task.update}, rebroadcast to
  * {@code /topic/tasks/{chatId}}. The server stamps {@code actorId} from the authenticated principal.
@@ -12,7 +14,9 @@ import java.util.UUID;
  * @param actorId who made the change (filled in by the server)
  */
 public record TaskUpdateEvent(
+        @NotNull
         UUID chatId,
+        @NotNull
         UUID taskId,
         String action,
         UUID actorId

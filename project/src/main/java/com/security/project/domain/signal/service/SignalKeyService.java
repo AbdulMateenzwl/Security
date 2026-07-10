@@ -61,7 +61,7 @@ public class SignalKeyService {
      */
     @Transactional
     public void uploadIdentityKey(UUID userId, IdentityKeyUploadRequest request) {
-        User user = requireUser(userId);
+        User user = userRepository.getByIdOrThrow(userId);
 
         IdentityKey identityKey = identityKeyRepository.findByUserId(userId)
                 .orElseGet(() -> {
@@ -85,7 +85,7 @@ public class SignalKeyService {
      */
     @Transactional
     public void uploadPreKeys(UUID userId, PreKeyUploadRequest request) {
-        User user = requireUser(userId);
+        User user = userRepository.getByIdOrThrow(userId);
 
         if (request.signedPreKey() != null) {
             storeSignedPreKey(user, request.signedPreKey());
@@ -111,7 +111,7 @@ public class SignalKeyService {
     /** Rotate the signed pre-key. The newest is the one served in future bundles. */
     @Transactional
     public void rotateSignedPreKey(UUID userId, SignedPreKeyDto dto) {
-        User user = requireUser(userId);
+        User user = userRepository.getByIdOrThrow(userId);
         storeSignedPreKey(user, dto);
         log.info("Rotated signed pre-key (keyId={}) for user id={}", dto.keyId(), userId);
     }
@@ -170,11 +170,6 @@ public class SignalKeyService {
         entity.setPublicKey(dto.publicKey());
         entity.setSignature(dto.signature());
         signedPreKeyRepository.save(entity);
-    }
-
-    private User requireUser(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     /** Lowercase hex of the public identity key — the value compared out-of-band as a safety number. */

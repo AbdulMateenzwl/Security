@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.util.StringUtils;
+import com.security.project.security.HttpRequestUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -87,13 +87,8 @@ public class AuthController {
 
     // --- request metadata helpers -----------------------------------------
 
-    /** Best-effort client IP: honour X-Forwarded-For (first hop) behind a proxy, else the socket address. */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwarded)) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return HttpRequestUtils.clientIp(request);
     }
 
     private String userAgent(HttpServletRequest request) {

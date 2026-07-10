@@ -29,24 +29,11 @@
 	<properties>
 		<java.version>25</java.version>
 
-		<!-- Signal Protocol — official Signal library (org.whispersystems:signal-client-java).
-             Server build, not the Android variant.
-             Check https://github.com/signalapp/libsignal for latest. -->
-		<signal.version>0.14.0</signal.version>
-
 		<!-- JWT — JJWT 0.12.x is the modern API (no deprecated classes) -->
 		<jjwt.version>0.12.6</jjwt.version>
 
 		<!-- Bucket4j — token-bucket rate limiter, Redis-backed -->
 		<bucket4j.version>8.10.1</bucket4j.version>
-
-		<!-- SpringDoc — Swagger UI auto-generated from controllers -->
-		<springdoc.version>2.6.0</springdoc.version>
-
-		<!-- MapStruct — compile-time DTO <-> entity mapping, zero reflection -->
-		<mapstruct.version>1.6.2</mapstruct.version>
-
-
 	</properties>
 	<dependencies>
 		<dependency>
@@ -147,31 +134,12 @@
 		</dependency>
 
 
-		<dependency>
-			<groupId>org.whispersystems</groupId>
-			<artifactId>signal-client-java</artifactId>
-			<version>${signal.version}</version>
-		</dependency>
-
-
-		<dependency>
-			<groupId>org.mapstruct</groupId>
-			<artifactId>mapstruct</artifactId>
-			<version>${mapstruct.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.mapstruct</groupId>
-			<artifactId>mapstruct-processor</artifactId>
-			<version>${mapstruct.version}</version>
-			<optional>true</optional>
-		</dependency>
-
 	</dependencies>
 
 	<build>
 		<plugins>
 			<!-- On Java 23+ annotation processors on the classpath are no longer run implicitly,
-			     so Lombok (and MapStruct, later) must be declared as explicit processor paths. -->
+			     so Lombok must be declared as an explicit processor path. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

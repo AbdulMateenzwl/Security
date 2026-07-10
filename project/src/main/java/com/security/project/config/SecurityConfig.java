@@ -21,8 +21,8 @@ import com.security.project.config.properties.RateLimitProperties;
 import com.security.project.security.jwt.JwtAuthEntryPoint;
 import com.security.project.security.jwt.JwtAuthenticationFilter;
 import com.security.project.security.ratelimit.RateLimitFilter;
+import com.security.project.security.ratelimit.RateLimiterService;
 
-import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -56,14 +56,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           LettuceBasedProxyManager<byte[]> rateLimitProxyManager,
+                                           RateLimiterService rateLimiterService,
                                            RateLimitProperties rateLimitProperties,
                                            ObjectMapper objectMapper) throws Exception {
         // Constructed here (not a bean) so it lives only in the security chain — after the JWT filter,
         // so the authenticated user is available for per-user limits — and is never auto-registered
         // by Boot as a stand-alone servlet filter.
         RateLimitFilter rateLimitFilter =
-                new RateLimitFilter(rateLimitProxyManager, rateLimitProperties, objectMapper);
+                new RateLimitFilter(rateLimiterService, rateLimitProperties, objectMapper);
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // Stateless JWT auth — no session cookie, so CSRF does not apply.

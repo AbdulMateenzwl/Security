@@ -1,5 +1,6 @@
 package com.security.project.domain.chat.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,10 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, UUID> {
     /** Members of a chat, with their user eagerly loaded (to render usernames without N+1). */
     @Query("SELECT cm FROM ChatMember cm JOIN FETCH cm.user WHERE cm.chat.id = :chatId ORDER BY cm.joinedAt ASC")
     List<ChatMember> findByChatIdWithUser(@Param("chatId") UUID chatId);
+
+    /** Members of several chats at once (users eagerly loaded) — batches the chat-list screen. */
+    @Query("SELECT cm FROM ChatMember cm JOIN FETCH cm.user WHERE cm.chat.id IN :chatIds ORDER BY cm.joinedAt ASC")
+    List<ChatMember> findByChatIdInWithUser(@Param("chatIds") Collection<UUID> chatIds);
 
     /** A user's memberships, with the chat eagerly loaded (for the chat-list screen). */
     @Query("SELECT cm FROM ChatMember cm JOIN FETCH cm.chat WHERE cm.user.id = :userId ORDER BY cm.joinedAt DESC")

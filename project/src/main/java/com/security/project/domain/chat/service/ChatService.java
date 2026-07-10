@@ -2,8 +2,10 @@ package com.security.project.domain.chat.service;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,13 +45,16 @@ public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatMemberRepository chatMemberRepository;
+    private final ChatAccessGuard chatAccessGuard;
     private final UserRepository userRepository;
 
     public ChatService(ChatRepository chatRepository,
                        ChatMemberRepository chatMemberRepository,
+                       ChatAccessGuard chatAccessGuard,
                        UserRepository userRepository) {
         this.chatRepository = chatRepository;
         this.chatMemberRepository = chatMemberRepository;
+        this.chatAccessGuard = chatAccessGuard;
         this.userRepository = userRepository;
     }
 
@@ -61,7 +66,7 @@ public class ChatService {
      */
     @Transactional
     public ChatDto createChat(UUID creatorId, CreateChatRequest req) {
-        User creator = requireUser(creatorId);
+        User creator = userRepository.getByIdOrThrow(creatorId);
 
         // Distinct member ids, excluding the creator (added separately as ADMIN).
         Set<UUID> memberIds = new LinkedHashSet<>(req.memberIds());
@@ -85,7 +90,7 @@ public class ChatService {
 
         addMemberInternal(saved, creator, MemberRole.ADMIN);
         for (UUID memberId : memberIds) {
-            addMemberInternal(saved, requireUser(memberId), MemberRole.MEMBER);
+            addMemberInternal(saved, userRepository.getByIdOrThrow(memberId), MemberRole.MEMBER);
         }
 
         log.info("Created {} chat id={} by user id={} with {} member(s)",
@@ -93,26 +98,37 @@ public class ChatService {
         return toDto(saved);
     }
 
-    /** All chats the caller is a member of. */
+    /** All chats the caller is a member of. Loads all members in a single batched query (no N+1). */
     @Transactional(readOnly = true)
     public List<ChatDto> listChats(UUID userId) {
-        return chatMemberRepository.findByUserIdWithChat(userId).stream()
+        List<Chat> chats = chatMemberRepository.findByUserIdWithChat(userId).stream()
                 .map(ChatMember::getChat)
-                .map(this::toDto)
+                .toList();
+        if (chats.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> chatIds = chats.stream().map(Chat::getId).toList();
+        Map<UUID, List<ChatMemberDto>> membersByChat =
+                chatMemberRepository.findByChatIdInWithUser(chatIds).stream()
+                        .collect(Collectors.groupingBy(
+                                m -> m.getChat().getId(),
+                                Collectors.mapping(ChatMemberDto::from, Collectors.toList())));
+        return chats.stream()
+                .map(chat -> ChatDto.from(chat, membersByChat.getOrDefault(chat.getId(), List.of())))
                 .toList();
     }
 
     /** Chat details — caller must be a member. */
     @Transactional(readOnly = true)
     public ChatDto getChat(UUID userId, UUID chatId) {
-        requireMembership(chatId, userId);
+        chatAccessGuard.requireMember(chatId, userId);
         return toDto(loadChat(chatId));
     }
 
     /** Update a group chat's name/avatar — ADMIN only. */
     @Transactional
     public ChatDto updateChat(UUID userId, UUID chatId, UpdateChatRequest req) {
-        requireAdmin(chatId, userId);
+        chatAccessGuard.requireAdmin(chatId, userId);
         Chat chat = loadChat(chatId);
         if (chat.getType() == ChatType.DIRECT) {
             throw new BadRequestException("Direct chats have no editable name or avatar");
@@ -130,7 +146,7 @@ public class ChatService {
     /** Delete a chat (cascades to members and messages) — ADMIN only. */
     @Transactional
     public void deleteChat(UUID userId, UUID chatId) {
-        requireAdmin(chatId, userId);
+        chatAccessGuard.requireAdmin(chatId, userId);
         chatRepository.deleteById(chatId);
         log.info("Deleted chat id={} by admin id={}", chatId, userId);
     }
@@ -138,7 +154,7 @@ public class ChatService {
     /** Add a member to a GROUP chat — ADMIN only. */
     @Transactional
     public ChatDto addMember(UUID actorId, UUID chatId, AddMemberRequest req) {
-        requireAdmin(chatId, actorId);
+        chatAccessGuard.requireAdmin(chatId, actorId);
         Chat chat = loadChat(chatId);
         if (chat.getType() == ChatType.DIRECT) {
             throw new BadRequestException("Cannot add members to a direct chat");
@@ -146,7 +162,7 @@ public class ChatService {
         if (chatMemberRepository.existsByChatIdAndUserId(chatId, req.userId())) {
             throw new BadRequestException("User is already a member of this chat");
         }
-        addMemberInternal(chat, requireUser(req.userId()), MemberRole.MEMBER);
+        addMemberInternal(chat, userRepository.getByIdOrThrow(req.userId()), MemberRole.MEMBER);
         log.info("Added user id={} to chat id={} by admin id={}", req.userId(), chatId, actorId);
         return toDto(chat);
     }
@@ -154,7 +170,7 @@ public class ChatService {
     /** Remove a member from a chat — ADMIN only. */
     @Transactional
     public void removeMember(UUID actorId, UUID chatId, UUID targetUserId) {
-        requireAdmin(chatId, actorId);
+        chatAccessGuard.requireAdmin(chatId, actorId);
         ChatMember target = chatMemberRepository.findByChatIdAndUserId(chatId, targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User is not a member of this chat"));
         chatMemberRepository.delete(target);
@@ -164,7 +180,7 @@ public class ChatService {
     /** Set or clear the disappearing-message timer — ADMIN only. */
     @Transactional
     public ChatDto setDisappearingTtl(UUID userId, UUID chatId, DisappearingTtlRequest req) {
-        requireAdmin(chatId, userId);
+        chatAccessGuard.requireAdmin(chatId, userId);
         Chat chat = loadChat(chatId);
         chat.setDisappearingMessageTtl(req.ttlSeconds());
         log.info("Set disappearing ttl={} on chat id={} by admin id={}", req.ttlSeconds(), chatId, userId);
@@ -181,27 +197,9 @@ public class ChatService {
         chatMemberRepository.save(member);
     }
 
-    /** Prove the caller is a member; throws 403 (not 404) so chat existence is never revealed. */
-    private ChatMember requireMembership(UUID chatId, UUID userId) {
-        return chatMemberRepository.findByChatIdAndUserId(chatId, userId)
-                .orElseThrow(() -> new AccessDeniedException("Not a member of this chat"));
-    }
-
-    private void requireAdmin(UUID chatId, UUID userId) {
-        ChatMember member = requireMembership(chatId, userId);
-        if (member.getRole() != MemberRole.ADMIN) {
-            throw new AccessDeniedException("Admin role required for this action");
-        }
-    }
-
     private Chat loadChat(UUID chatId) {
         return chatRepository.findById(chatId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat not found"));
-    }
-
-    private User requireUser(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     private ChatDto toDto(Chat chat) {

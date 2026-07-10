@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.security.project.domain.chat.entity.ChatMember;
 import com.security.project.domain.chat.entity.MemberRole;
-import com.security.project.domain.chat.repository.ChatMemberRepository;
+import com.security.project.domain.chat.service.ChatAccessGuard;
 import com.security.project.domain.chat.repository.ChatRepository;
 import com.security.project.domain.task.dto.CreateTaskRequest;
 import com.security.project.domain.task.dto.TaskActivityDto;
@@ -48,24 +48,24 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskActivityLogRepository activityLogRepository;
     private final ChatRepository chatRepository;
-    private final ChatMemberRepository chatMemberRepository;
+    private final ChatAccessGuard chatAccessGuard;
     private final UserRepository userRepository;
 
     public TaskService(TaskRepository taskRepository,
                        TaskActivityLogRepository activityLogRepository,
                        ChatRepository chatRepository,
-                       ChatMemberRepository chatMemberRepository,
+                       ChatAccessGuard chatAccessGuard,
                        UserRepository userRepository) {
         this.taskRepository = taskRepository;
         this.activityLogRepository = activityLogRepository;
         this.chatRepository = chatRepository;
-        this.chatMemberRepository = chatMemberRepository;
+        this.chatAccessGuard = chatAccessGuard;
         this.userRepository = userRepository;
     }
 
     @Transactional
     public TaskDto createTask(UUID actorId, UUID chatId, CreateTaskRequest req) {
-        requireMembership(chatId, actorId);
+        chatAccessGuard.requireMember(chatId, actorId);
         if (!chatRepository.existsById(chatId)) {
             throw new ResourceNotFoundException("Chat not found");
         }
@@ -101,7 +101,7 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public List<TaskDto> listTasks(UUID actorId, UUID chatId, TaskStatus status, UUID assigneeId) {
-        requireMembership(chatId, actorId);
+        chatAccessGuard.requireMember(chatId, actorId);
         return taskRepository.search(chatId, status, assigneeId).stream()
                 .map(TaskDto::from)
                 .toList();
@@ -110,7 +110,7 @@ public class TaskService {
     /** Kanban board: tasks grouped by status, with every column present (even if empty). */
     @Transactional(readOnly = true)
     public Map<TaskStatus, List<TaskDto>> getBoard(UUID actorId, UUID chatId) {
-        requireMembership(chatId, actorId);
+        chatAccessGuard.requireMember(chatId, actorId);
         Map<TaskStatus, List<TaskDto>> board = new LinkedHashMap<>();
         for (TaskStatus s : TaskStatus.values()) {
             board.put(s, new ArrayList<>());
@@ -124,14 +124,14 @@ public class TaskService {
     @Transactional(readOnly = true)
     public TaskDto getTask(UUID actorId, UUID taskId) {
         Task task = loadTask(taskId);
-        requireMembership(task.getChat().getId(), actorId);
+        chatAccessGuard.requireMember(task.getChat().getId(), actorId);
         return TaskDto.from(task);
     }
 
     @Transactional(readOnly = true)
     public List<TaskActivityDto> getActivity(UUID actorId, UUID taskId) {
         Task task = loadTask(taskId);
-        requireMembership(task.getChat().getId(), actorId);
+        chatAccessGuard.requireMember(task.getChat().getId(), actorId);
         return activityLogRepository.findByTaskIdWithActor(taskId).stream()
                 .map(TaskActivityDto::from)
                 .toList();
@@ -142,7 +142,7 @@ public class TaskService {
     public TaskDto updateTask(UUID actorId, UUID taskId, UpdateTaskRequest req) {
         Task task = loadTask(taskId);
         UUID chatId = task.getChat().getId();
-        requireMembership(chatId, actorId);
+        chatAccessGuard.requireMember(chatId, actorId);
         User actor = userRepository.getReferenceById(actorId);
 
         if (req.title() != null && !req.title().isBlank() && !req.title().equals(task.getTitle())) {
@@ -209,16 +209,8 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
 
-    private void requireMembership(UUID chatId, UUID userId) {
-        if (!chatMemberRepository.existsByChatIdAndUserId(chatId, userId)) {
-            throw new AccessDeniedException("Not a member of this chat");
-        }
-    }
-
     private void requireCreatorOrAdmin(Task task, UUID actorId) {
-        UUID chatId = task.getChat().getId();
-        ChatMember membership = chatMemberRepository.findByChatIdAndUserId(chatId, actorId)
-                .orElseThrow(() -> new AccessDeniedException("Not a member of this chat"));
+        ChatMember membership = chatAccessGuard.requireMember(task.getChat().getId(), actorId);
         boolean isCreator = task.getCreatedBy().getId().equals(actorId);
         if (!isCreator && membership.getRole() != MemberRole.ADMIN) {
             throw new AccessDeniedException("Only the task creator or a chat admin may delete this task");
@@ -227,10 +219,9 @@ public class TaskService {
 
     /** Verify the user is a member of the chat and return them (for assignment). */
     private User requireChatMemberUser(UUID chatId, UUID userId) {
-        if (!chatMemberRepository.existsByChatIdAndUserId(chatId, userId)) {
+        if (!chatAccessGuard.isMember(chatId, userId)) {
             throw new BadRequestException("Assignee is not a member of this chat");
         }
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return userRepository.getByIdOrThrow(userId);
     }
 }
