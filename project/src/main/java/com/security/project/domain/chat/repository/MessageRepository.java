@@ -6,12 +6,22 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.security.project.domain.chat.entity.Message;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
+
+    /**
+     * Hard-delete every disappearing message whose expiry has passed. Their {@code message_receipts}
+     * are removed by the database FK's {@code ON DELETE CASCADE}, and any reply pointing at a deleted
+     * message is nulled via {@code ON DELETE SET NULL}. Returns the number of messages removed.
+     */
+    @Modifying
+    @Query("DELETE FROM Message m WHERE m.expiresAt IS NOT NULL AND m.expiresAt < :now")
+    int deleteExpired(@Param("now") Instant now);
 
     /**
      * First (newest) page of a chat's history, excluding already-expired disappearing messages.
