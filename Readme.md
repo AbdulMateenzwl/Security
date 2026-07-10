@@ -51,6 +51,7 @@ what I did in the fifth week
 - Implement realtime messaging over WebSocket (STOMP): clients connect to /ws authenticating with their JWT as a query parameter, then subscribe to per-chat topics. Messages sent over the socket are persisted and instantly fanned out to everyone in the chat; typing indicators and task-change events are also broadcast. Every WebSocket connection is authenticated at CONNECT (access token + active session) and every subscription is authorized — you can only subscribe to chats you belong to, or your own personal channel — with unauthorized attempts rejected via a STOMP ERROR frame. (AI Help from Claude code)
 - Implement Redis-backed rate limiting (Bucket4j): per-endpoint token buckets that survive restarts and are shared across instances. Login (5/15min) and registration (3/hour) are limited per client IP to blunt brute-force and abuse; message send (60/min) and pre-key bundle fetch (10/hour) are limited per user, with a 200/min default for other authenticated endpoints. Exceeding a limit returns 429 with Retry-After and X-RateLimit-* headers. (AI Help from Claude code)
 - Implement the disappearing-message cleanup job: a scheduled task (cron-driven) that hard-deletes messages past their expiry so ciphertext does not linger on disk. Receipts are removed automatically via the database cascade, and replies to a deleted message are safely nulled. History already hides expired messages, so this is the durable backstop. (AI Help from Claude code)
+- Implement the identity-key fingerprint (safety number) endpoint: GET /api/users/{userId}/fingerprint returns the hex fingerprint of a user's public identity key so clients can compare it out-of-band and detect a man-in-the-middle. Also hardened error handling so malformed path/query parameters (e.g. a bad UUID or unknown enum) return 400 instead of 500 across the whole API. (AI Help from Claude code)
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -77,6 +78,7 @@ Commit 14: Implement the Task domain — in-chat tasks with status/priority/assi
 Commit 15: Implement realtime messaging over WebSocket/STOMP — JWT-authenticated handshake, per-subscription authorization, live message/typing/task broadcast
 Commit 16: Implement Redis-backed per-endpoint rate limiting (Bucket4j) — per-IP login/register and per-user message/pre-key limits, 429 with Retry-After and X-RateLimit headers
 Commit 17: Implement the disappearing-message cleanup job — scheduled hard-delete of expired messages with cascading receipt removal
+Commit 18: Implement the identity-key fingerprint (safety number) endpoint, and return 400 (not 500) for malformed path/query parameters app-wide
 
 # General References
 

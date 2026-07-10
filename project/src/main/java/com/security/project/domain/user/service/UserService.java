@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.security.project.config.properties.AppSecurityProperties;
+import com.security.project.domain.user.dto.FingerprintResponse;
 import com.security.project.domain.user.dto.RegisterRequest;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.repository.UserRepository;
@@ -68,6 +69,16 @@ public class UserService {
     public User getById(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    /**
+     * A user's identity-key fingerprint (safety number) for out-of-band MITM verification. The
+     * fingerprint is {@code null} if the user has not yet published an identity key.
+     */
+    @Transactional(readOnly = true)
+    public FingerprintResponse getFingerprint(UUID userId) {
+        User user = getById(userId);
+        return new FingerprintResponse(user.getId(), user.getUsername(), user.getIdentityKeyFingerprint());
     }
 
     /**
