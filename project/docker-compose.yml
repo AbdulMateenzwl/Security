@@ -1,0 +1,39 @@
+# Local infrastructure for running SecureChat.
+# Credentials/ports match the defaults in application.yml (DB_URL/DB_USERNAME/DB_PASSWORD,
+# REDIS_HOST/REDIS_PORT), so `./mvnw spring-boot:run` works with no extra env vars.
+#
+#   docker compose up -d      # start Postgres + Redis in the background
+#   docker compose ps         # check they are healthy
+#   docker compose down       # stop them (add -v to also delete the data volume)
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: securechat-postgres
+    environment:
+      POSTGRES_DB: securechat
+      POSTGRES_USER: securechat
+      POSTGRES_PASSWORD: securechat
+    ports:
+      - "5432:5432"
+    volumes:
+      - securechat-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U securechat -d securechat"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: securechat-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  securechat-pgdata:

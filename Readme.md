@@ -34,6 +34,11 @@ what I did in the fourth week
 - Refactored project configuration and added application profiles for development and production (Claude Code)
 - Add JWT and security configuration classes with properties support
 - Add custom exception classes for error handling in the application
+- Implement JWT authentication with access and refresh token support, including user session management and error handling (Little help fromn Claude code)
+
+# Week 5
+what I did in the fifth week
+- Implement user authentication and session management with JWT support, including user registration, login, and session handling (AI Help from Claude code)
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -48,6 +53,8 @@ Commit 3: Setup the project with signal library and other libraries that will be
 Commit 4: Refactor project configuration and add application profiles for development and production (Claude Code)
 Commit 5: Add JWT and security configuration classes with properties support
 Commit 6: Add custom exception classes for error handling in the application
+Commit 7: Implement JWT authentication with access and refresh token support, including user session management and error handling 
+Commit 8: Implement user authentication and session management with JWT support, including user registration, login, and session handling
 
 
 # General References
