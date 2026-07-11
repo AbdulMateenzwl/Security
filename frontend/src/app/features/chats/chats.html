@@ -7,11 +7,40 @@
 </header>
 
 <main class="content">
-  <div class="card placeholder">
-    <h2>You're signed in 🔒</h2>
-    <p class="text-muted">
-      Welcome, {{ user()?.username }}. Chats, messaging and tasks will appear here as we build each
-      feature next.
-    </p>
+  <div class="list-head">
+    <h2>Chats</h2>
+    <button class="btn" (click)="showCreate.set(true)">+ New chat</button>
   </div>
+
+  @if (loading()) {
+    <p class="text-muted">Loading chats…</p>
+  } @else if (error()) {
+    <div class="alert alert-error">{{ error() }}</div>
+    <button class="btn btn-ghost" (click)="load()">Retry</button>
+  } @else if (!hasChats()) {
+    <div class="card empty">
+      <p>No chats yet.</p>
+      <p class="text-muted">Start a conversation to see it here.</p>
+      <button class="btn" (click)="showCreate.set(true)">+ New chat</button>
+    </div>
+  } @else {
+    <ul class="chat-list card">
+      @for (chat of chats(); track chat.id) {
+        <li class="chat-row" (click)="open(chat)">
+          <span class="avatar">{{ initial(chat) }}</span>
+          <span class="chat-meta">
+            <span class="chat-name">{{ displayName(chat) }}</span>
+            <span class="chat-sub text-muted">{{ subtitle(chat) }}</span>
+          </span>
+          @if (chat.type === 'GROUP') {
+            <span class="badge">Group</span>
+          }
+        </li>
+      }
+    </ul>
+  }
 </main>
+
+@if (showCreate()) {
+  <app-create-chat-dialog (created)="onCreated($event)" (closed)="showCreate.set(false)" />
+}

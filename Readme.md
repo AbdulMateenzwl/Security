@@ -63,7 +63,8 @@ what I did in the fifth week
 Week 8: 
 - feat: initialize frontend application with Angular setup
 - feat: implement authentication service, guards, and token storage
-
+- feat: implement login and registration components pages
+- feat: implement chat functionality with user search and chat creation features
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -99,6 +100,10 @@ Commit 23: Rate-limit and validate WebSocket message sends (shared per-user buck
 Commit 24: Add JUnit 5 + Mockito unit tests for authorization, message, chat and task service logic
 Commit 25: feat: initialize frontend application with Angular setup
 Commit 26: feat: implement authentication service, guards, and token storage
+Commit 27: feat: implement login and registration components pages
+Commit 28: feat: add user search endpoint (GET /api/users/search) for starting chats
+Commit 29: feat: implement chat list and create-chat dialog (direct/group) in the frontend
+Commit 30: feat: implement chat functionality with user search and chat creation features
 
 # General References
 

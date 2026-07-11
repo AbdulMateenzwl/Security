@@ -1,0 +1,82 @@
+<div class="dialog-backdrop" (click)="close()">
+  <div class="dialog card" (click)="$event.stopPropagation()">
+    <div class="dialog-head">
+      <h2>New chat</h2>
+      <button class="icon-btn" type="button" (click)="close()" aria-label="Close">×</button>
+    </div>
+
+    @if (error()) {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    <div class="type-toggle">
+      <button
+        type="button"
+        class="toggle-btn"
+        [class.active]="type() === 'DIRECT'"
+        (click)="setType('DIRECT')"
+      >
+        Direct
+      </button>
+      <button
+        type="button"
+        class="toggle-btn"
+        [class.active]="type() === 'GROUP'"
+        (click)="setType('GROUP')"
+      >
+        Group
+      </button>
+    </div>
+
+    @if (type() === 'GROUP') {
+      <div class="form-group">
+        <label for="groupName">Group name</label>
+        <input id="groupName" type="text" [formControl]="groupName" placeholder="e.g. Project team" />
+      </div>
+    }
+
+    <!-- Selected members -->
+    @if (selected().length) {
+      <div class="chips">
+        @for (u of selected(); track u.id) {
+          <span class="chip">
+            {{ u.username }}
+            <button type="button" class="chip-x" (click)="remove(u)" aria-label="Remove">×</button>
+          </span>
+        }
+      </div>
+    }
+
+    <div class="form-group">
+      <label for="userSearch">
+        {{ type() === 'DIRECT' ? 'Find a person' : 'Add people' }}
+      </label>
+      <input id="userSearch" type="text" [formControl]="searchControl" placeholder="Search by username or email…" autocomplete="off" />
+    </div>
+
+    <!-- Search results -->
+    <div class="results">
+      @if (searching()) {
+        <p class="text-muted result-note">Searching…</p>
+      } @else if (searchControl.value.trim() && !results().length) {
+        <p class="text-muted result-note">No users found.</p>
+      }
+      @for (u of results(); track u.id) {
+        <button type="button" class="result-row" (click)="select(u)">
+          <span class="avatar">{{ u.username.charAt(0).toUpperCase() }}</span>
+          <span class="result-meta">
+            <span class="result-name">{{ u.username }}</span>
+            <span class="result-email text-muted">{{ u.email }}</span>
+          </span>
+        </button>
+      }
+    </div>
+
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" (click)="close()">Cancel</button>
+      <button type="button" class="btn" [disabled]="!canSubmit" (click)="submit()">
+        {{ submitting() ? 'Creating…' : 'Create chat' }}
+      </button>
+    </div>
+  </div>
+</div>

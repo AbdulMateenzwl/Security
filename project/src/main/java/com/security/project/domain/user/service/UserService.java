@@ -2,6 +2,7 @@ package com.security.project.domain.user.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -11,9 +12,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Limit;
+
 import com.security.project.config.properties.AppSecurityProperties;
 import com.security.project.domain.user.dto.FingerprintResponse;
 import com.security.project.domain.user.dto.RegisterRequest;
+import com.security.project.domain.user.dto.UserDto;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.repository.UserRepository;
 import com.security.project.exception.DuplicateResourceException;
@@ -67,6 +71,25 @@ public class UserService {
     @Transactional(readOnly = true)
     public User getById(UUID id) {
         return userRepository.getByIdOrThrow(id);
+    }
+
+    /**
+     * Search users by username or email (case-insensitive substring) to start a chat, excluding the
+     * caller. A blank query returns nothing; results are capped so a short query can't enumerate the
+     * table. The term is escaped so {@code %} and {@code _} typed by the user are treated literally.
+     */
+    @Transactional(readOnly = true)
+    public List<UserDto> search(String query, UUID currentUserId) {
+        String trimmed = query == null ? "" : query.trim();
+        if (trimmed.isEmpty()) {
+            return List.of();
+        }
+        String term = "%" + trimmed.toLowerCase().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        return userRepository
+                .searchByUsernameOrEmail(term, currentUserId, Limit.of(20))
+                .stream()
+                .map(UserDto::from)
+                .toList();
     }
 
     /**
