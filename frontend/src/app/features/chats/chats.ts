@@ -1,7 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
+import { SignalService } from '../../core/services/signal.service';
 import { Chat } from '../../core/models/chat.models';
 import { extractErrorMessage } from '../../core/util/api-error';
 import { chatDisplayName, chatInitial } from './chat-display';
@@ -9,16 +10,18 @@ import { CreateChatDialog } from './create-chat-dialog/create-chat-dialog';
 
 @Component({
   selector: 'app-chats',
-  imports: [CreateChatDialog],
+  imports: [CreateChatDialog, RouterLink],
   templateUrl: './chats.html',
   styleUrl: './chats.scss',
 })
 export class Chats {
   private readonly auth = inject(AuthService);
   private readonly chatService = inject(ChatService);
+  private readonly signalService = inject(SignalService);
   private readonly router = inject(Router);
 
   readonly user = this.auth.user;
+  readonly encryptionState = this.signalService.state;
 
   readonly chats = signal<Chat[]>([]);
   readonly loading = signal(true);
@@ -29,6 +32,10 @@ export class Chats {
 
   constructor() {
     this.load();
+    // Provision this device's Signal keys on first sign-in so peers can start encrypted sessions.
+    this.signalService.ensureProvisioned().catch(() => {
+      /* state signal reflects the failure; the Security page lets the user retry */
+    });
   }
 
   load(): void {

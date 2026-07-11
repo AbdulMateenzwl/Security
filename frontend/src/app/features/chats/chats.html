@@ -1,6 +1,14 @@
 <header class="topbar">
   <div class="brand">SecureChat</div>
   <div class="topbar-right">
+    <a class="enc-pill" routerLink="/security" [title]="'Encryption: ' + encryptionState()">
+      @switch (encryptionState()) {
+        @case ('ready') { <span class="dot on"></span> Encrypted }
+        @case ('provisioning') { <span class="dot pending"></span> Setting up… }
+        @case ('error') { <span class="dot off"></span> Key setup failed }
+        @default { <span class="dot pending"></span> Security }
+      }
+    </a>
     <span class="text-muted">{{ user()?.username }}</span>
     <button class="btn btn-ghost" (click)="logout()">Log out</button>
   </div>

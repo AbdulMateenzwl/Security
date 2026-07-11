@@ -65,6 +65,7 @@ Week 8:
 - feat: implement authentication service, guards, and token storage
 - feat: implement login and registration components pages
 - feat: implement chat functionality with user search and chat creation features
+- feat: implement the client-side Signal key-setup (device provisioning) feature — the browser generates the identity key pair, registration id, a signed pre-key and a batch of one-time pre-keys with @privacyresearch/libsignal-protocol-typescript, stores the PRIVATE halves in IndexedDB (per user, never sent to the server), and publishes only the public halves to /api/signal. Real X3DH session establishment + Double Ratchet encrypt/decrypt are wired for the messaging feature; verified with an Alice→Bob round-trip. Added a Security page showing the safety number (identity fingerprint), registration id and remaining one-time pre-keys with replenish/reset, plus auto-provisioning on first sign-in.
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -103,7 +104,9 @@ Commit 26: feat: implement authentication service, guards, and token storage
 Commit 27: feat: implement login and registration components pages
 Commit 28: feat: add user search endpoint (GET /api/users/search) for starting chats
 Commit 29: feat: implement chat list and create-chat dialog (direct/group) in the frontend
+Commit 30: feat: implement client-side Signal key-setup — browser keygen, IndexedDB private-key store, publish public keys to /api/signal, session + encrypt/decrypt helpers
 Commit 30: feat: implement chat functionality with user search and chat creation features
+Commit 31: feat: implement the encrypted messaging view (/chats/:id) — decrypt history in ratchet order with local plaintext caching, encrypt-and-send for direct chats; group chats flagged unsupported
 
 # General References
 

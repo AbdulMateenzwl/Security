@@ -1,0 +1,86 @@
+<header class="topbar">
+  <div class="brand"><a routerLink="/chats">SecureChat</a></div>
+  <div class="topbar-right">
+    <span class="text-muted">{{ user()?.username }}</span>
+  </div>
+</header>
+
+<main class="content">
+  <div class="page-head">
+    <h2>Encryption &amp; security</h2>
+    <button class="btn btn-ghost" (click)="back()">Back to chats</button>
+  </div>
+
+  @if (error()) {
+    <div class="alert alert-error">{{ error() }}</div>
+  }
+  @if (notice()) {
+    <div class="alert alert-success">{{ notice() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Loading encryption status…</p>
+  } @else {
+    <!-- Status -->
+    <section class="card panel">
+      <div class="status-row">
+        <span class="dot" [class.on]="provisioned()" [class.off]="!provisioned()"></span>
+        <div>
+          <strong>
+            {{ provisioned() ? 'End-to-end encryption is active' : 'Encryption not set up' }}
+          </strong>
+          <p class="text-muted small">
+            Your private keys are generated and stored only on this device. The server only ever
+            holds your public keys and cannot read your messages.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Safety number -->
+    <section class="card panel">
+      <h3>Your safety number</h3>
+      <p class="text-muted small">
+        Compare this with a contact out-of-band (in person or over another trusted channel) to
+        confirm no one is intercepting your conversation.
+      </p>
+      @if (safetyNumber()) {
+        <code class="safety">{{ safetyNumber() }}</code>
+      } @else {
+        <p class="text-muted">Not available yet.</p>
+      }
+      @if (registrationId() !== null) {
+        <p class="text-muted small reg">Registration id: {{ registrationId() }}</p>
+      }
+    </section>
+
+    <!-- One-time pre-keys -->
+    <section class="card panel">
+      <h3>One-time pre-keys</h3>
+      <p class="text-muted small">
+        These let others start an encrypted conversation with you while you're offline. Each is used
+        once, so they need topping up.
+      </p>
+      <div class="prekey-row">
+        <span class="count" [class.low]="lowOnKeys()">{{ remainingPreKeys() ?? '—' }}</span>
+        <span class="text-muted">remaining on the server</span>
+      </div>
+      @if (lowOnKeys()) {
+        <p class="field-error small">Running low — publish more so contacts can always reach you.</p>
+      }
+      <button class="btn" [disabled]="busy()" (click)="generateMore()">
+        {{ busy() ? 'Working…' : 'Generate more' }}
+      </button>
+    </section>
+
+    <!-- Danger zone -->
+    <section class="card panel danger">
+      <h3>Reset device keys</h3>
+      <p class="text-muted small">
+        Wipes this device's keys and generates a brand-new identity. Your safety number will change
+        and contacts will see a new key. Only do this if this device may be compromised.
+      </p>
+      <button class="btn btn-danger" [disabled]="busy()" (click)="resetDevice()">Reset device keys</button>
+    </section>
+  }
+</main>
