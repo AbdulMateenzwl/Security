@@ -59,6 +59,10 @@ what I did in the fifth week
 - Hardening: WebSocket message sends are now rate-limited too, sharing the same per-user bucket as the REST endpoint so the 60/min limit is unified across both transports; inbound WebSocket payloads are validated (reject missing chat id / empty ciphertext); and the JWT is dropped from the WebSocket session once the connection is authenticated so it can never leak into a logged message frame. (AI Help from Claude code)
 - Testing: added the first real unit-test suite (JUnit 5 + Mockito) covering the authorization guard, the message delivery/receipt rules, chat-creation validation, and task creation with its activity log — including a regression test for the "task must set its creator" bug found earlier. (AI Help from Claude code)
 
+
+Week 8: 
+- feat: initialize frontend application with Angular setup
+
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
 - [libsignal (Signal Protocol)](https://github.com/signalapp/libsignal)
@@ -91,6 +95,7 @@ Commit 21: De-duplicate the load-user-or-404 and client-IP helpers into shared c
 Commit 22: Fix N+1 queries in chat listing and task labels (batched member load + @BatchSize)
 Commit 23: Rate-limit and validate WebSocket message sends (shared per-user bucket, payload validation) and stop the JWT leaking into logged frames
 Commit 24: Add JUnit 5 + Mockito unit tests for authorization, message, chat and task service logic
+Commit 25: feat: initialize frontend application with Angular setup
 
 # General References
 
