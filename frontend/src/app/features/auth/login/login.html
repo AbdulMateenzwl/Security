@@ -1,0 +1,36 @@
+<div class="auth-shell">
+  <form class="auth-card card" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="auth-head">
+      <h1>SecureChat</h1>
+      <p class="text-muted">Sign in to your account</p>
+    </div>
+
+    @if (error()) {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input id="username" type="text" formControlName="username" autocomplete="username" />
+      @if (form.controls.username.touched && form.controls.username.invalid) {
+        <span class="field-error">Username is required.</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input id="password" type="password" formControlName="password" autocomplete="current-password" />
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <span class="field-error">Password is required.</span>
+      }
+    </div>
+
+    <button type="submit" class="btn btn-block" [disabled]="submitting()">
+      {{ submitting() ? 'Signing in…' : 'Sign in' }}
+    </button>
+
+    <p class="auth-foot text-muted">
+      Don't have an account? <a routerLink="/register">Create one</a>
+    </p>
+  </form>
+</div>

@@ -62,6 +62,8 @@ what I did in the fifth week
 
 Week 8: 
 - feat: initialize frontend application with Angular setup
+- feat: implement authentication service, guards, and token storage
+
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -96,6 +98,7 @@ Commit 22: Fix N+1 queries in chat listing and task labels (batched member load 
 Commit 23: Rate-limit and validate WebSocket message sends (shared per-user bucket, payload validation) and stop the JWT leaking into logged frames
 Commit 24: Add JUnit 5 + Mockito unit tests for authorization, message, chat and task service logic
 Commit 25: feat: initialize frontend application with Angular setup
+Commit 26: feat: implement authentication service, guards, and token storage
 
 # General References
 

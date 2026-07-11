@@ -1,0 +1,17 @@
+<header class="topbar">
+  <div class="brand">SecureChat</div>
+  <div class="topbar-right">
+    <span class="text-muted">{{ user()?.username }}</span>
+    <button class="btn btn-ghost" (click)="logout()">Log out</button>
+  </div>
+</header>
+
+<main class="content">
+  <div class="card placeholder">
+    <h2>You're signed in 🔒</h2>
+    <p class="text-muted">
+      Welcome, {{ user()?.username }}. Chats, messaging and tasks will appear here as we build each
+      feature next.
+    </p>
+  </div>
+</main>
