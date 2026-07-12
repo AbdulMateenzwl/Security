@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ChatService } from '../../core/services/chat.service';
+import { RealtimeService } from '../../core/services/realtime.service';
 import { SignalService } from '../../core/services/signal.service';
 import { Chat } from '../../core/models/chat.models';
 import { extractErrorMessage } from '../../core/util/api-error';
@@ -18,6 +19,7 @@ export class Chats {
   private readonly auth = inject(AuthService);
   private readonly chatService = inject(ChatService);
   private readonly signalService = inject(SignalService);
+  private readonly realtime = inject(RealtimeService);
   private readonly router = inject(Router);
 
   readonly user = this.auth.user;
@@ -81,6 +83,7 @@ export class Chats {
   }
 
   logout(): void {
+    this.realtime.disconnect();
     this.auth.logout().subscribe({
       next: () => this.router.navigate(['/login']),
       error: () => this.router.navigate(['/login']),

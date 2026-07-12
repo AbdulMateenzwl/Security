@@ -44,6 +44,18 @@
 .enc {
   font-size: 0.72rem;
 }
+.live {
+  color: var(--color-text-muted);
+}
+.live.on {
+  color: var(--color-success);
+}
+
+.typing {
+  padding: 0.2rem 1rem 0.4rem;
+  font-size: 0.8rem;
+  font-style: italic;
+}
 .btn.sm {
   padding: 0.4rem 0.7rem;
   font-size: 0.82rem;

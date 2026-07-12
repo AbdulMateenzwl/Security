@@ -4,7 +4,10 @@
     <div class="head-meta">
       <span class="title">{{ title() }}</span>
       @if (!unsupportedGroup()) {
-        <span class="enc text-muted">🔒 End-to-end encrypted</span>
+        <span class="enc text-muted">
+          🔒 End-to-end encrypted
+          <span class="live" [class.on]="connected()">• {{ connected() ? 'Live' : 'Connecting…' }}</span>
+        </span>
       }
     </div>
   </div>
@@ -41,10 +44,15 @@
     }
   </div>
 
+  @if (peerTyping()) {
+    <div class="typing text-muted">{{ peer()?.username }} is typing…</div>
+  }
+
   <form class="composer" (ngSubmit)="send()">
     <input
       type="text"
       [formControl]="draft"
+      (input)="onInput()"
       placeholder="Type an encrypted message…"
       autocomplete="off"
       [disabled]="loading()"
