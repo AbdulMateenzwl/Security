@@ -1,0 +1,66 @@
+meta {
+  name: Create Direct Chat
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/chats
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "type": "DIRECT",
+    "memberIds": ["{{peerId}}"]
+  }
+}
+
+script:pre-request {
+  // Resolve peerId from peerUsername if it isn't set yet, so this works standalone.
+  if (!bru.getEnvVar("peerId")) {
+    const base = bru.getEnvVar("baseUrl");
+    const token = bru.getEnvVar("accessToken");
+    const q = bru.getEnvVar("peerUsername");
+    if (typeof fetch === "function" && base && token && q) {
+      const r = await fetch(base + "/api/users/search?q=" + encodeURIComponent(q), {
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (r.ok) {
+        const users = await r.json();
+        if (Array.isArray(users) && users.length) {
+          bru.setEnvVar("peerId", users[0].id);
+        }
+      }
+    }
+  }
+  if (!bru.getEnvVar("peerId")) {
+    throw new Error("peerId is not set. Run 'Auth / Login' then 'Users / Search Peer' first.");
+  }
+}
+
+script:post-response {
+  if (res.status === 200 || res.status === 201) {
+    bru.setEnvVar("chatId", res.body.id);
+    console.log("chatId=" + res.body.id);
+  }
+}
+
+tests {
+  test("chat created", function () {
+    expect([200, 201]).to.include(res.status);
+    expect(res.body.id).to.be.a("string");
+  });
+}
+
+docs {
+  Creates (or reuses) a DIRECT chat with {{peerId}} and saves the chat id as {{chatId}}.
+  Auto-fills {{peerId}} from {{peerUsername}} if needed. For a DIRECT chat, memberIds must
+  contain exactly one other user; an existing direct chat with the same peer is returned
+  instead of duplicated.
+}

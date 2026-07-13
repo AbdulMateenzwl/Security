@@ -1,0 +1,38 @@
+meta {
+  name: Search Peer
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/users/search?q={{peerUsername}}
+  body: none
+  auth: bearer
+}
+
+params:query {
+  q: {{peerUsername}}
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  if (res.status === 200 && Array.isArray(res.body) && res.body.length > 0) {
+    bru.setEnvVar("peerId", res.body[0].id);
+    console.log("peerId=" + res.body[0].id + " (" + res.body[0].username + ")");
+  }
+}
+
+tests {
+  test("found a peer", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.length).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  Searches users by username ({{peerUsername}}) and saves the first match as {{peerId}},
+  used to create a direct chat and to fetch the peer's pre-key bundle.
+}

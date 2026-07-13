@@ -1,0 +1,27 @@
+meta {
+  name: Rotate Signed PreKey
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/signal/signed-pre-key
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "keyId": 2,
+    "publicKey": "BXNpZ25lZC1wcmVrZXktMjAwMDAwMDAwMDAwMDAwMA==",
+    "signature": "c2lnbmF0dXJlLTIwMDAwMDAwMDA="
+  }
+}
+
+docs {
+  Rotates the signed pre-key. The newest one is what future pre-key bundles serve. Returns 204.
+}

@@ -1,0 +1,20 @@
+meta {
+  name: Logout
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/auth/logout
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  Revokes the current session on the server (204). The stored token then becomes invalid,
+  which is a handy way to test the 401 / refresh path.
+}

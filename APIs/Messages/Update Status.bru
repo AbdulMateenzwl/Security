@@ -1,0 +1,26 @@
+meta {
+  name: Update Status
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/messages/{{messageId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "status": "DELIVERED"
+  }
+}
+
+docs {
+  Marks {{messageId}} as DELIVERED or READ (recipient only — you cannot receipt your own
+  message, that returns 400). Status only moves forward: SENT -> DELIVERED -> READ. Returns 204.
+}

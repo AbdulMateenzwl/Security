@@ -1,0 +1,33 @@
+meta {
+  name: Upload Identity Key
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/signal/identity-key
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "publicKey": "BXRlc3QtaWRlbnRpdHkta2V5LTAwMDAwMDAwMDAwMDA=",
+    "registrationId": 1234
+  }
+}
+
+docs {
+  Publishes this account's PUBLIC identity key (Base64) + registration id. Returns 204.
+
+  ⚠️ This OVERWRITES the account's real identity key on the server. If you run it against
+  an account that is logged into the web app, you will desync that browser's Signal keys.
+  Use a throwaway account (Register first), NOT abdul/mateen while testing the UI.
+
+  Uploading a *different* key than the one on file is treated as an identity rotation and
+  clears the account's old signed + one-time pre-keys.
+}

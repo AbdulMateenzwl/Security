@@ -1,0 +1,35 @@
+meta {
+  name: Upload PreKeys
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/signal/pre-keys
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "preKeys": [
+      { "keyId": 1, "publicKey": "BW9uZS10aW1lLXByZWtleS0xMDAwMDAwMDAwMDA=" },
+      { "keyId": 2, "publicKey": "BW9uZS10aW1lLXByZWtleS0yMDAwMDAwMDAwMDA=" }
+    ],
+    "signedPreKey": {
+      "keyId": 1,
+      "publicKey": "BXNpZ25lZC1wcmVrZXktMDAwMDAwMDAwMDAwMDAwMA==",
+      "signature": "c2lnbmF0dXJlLXBsYWNlaG9sZGVy"
+    }
+  }
+}
+
+docs {
+  Publishes one-time pre-keys and (optionally) the signed pre-key. Returns 204. Existing
+  key ids are skipped, so it is safe to re-run. Run Upload Identity Key first so the account
+  has a complete bundle. ⚠️ Same warning as Upload Identity Key — use a throwaway account.
+}

@@ -1,0 +1,20 @@
+meta {
+  name: PreKey Count
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/signal/pre-key-count
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  How many unconsumed one-time pre-keys the current account still has on the server. The web
+  client tops up when this runs low.
+}

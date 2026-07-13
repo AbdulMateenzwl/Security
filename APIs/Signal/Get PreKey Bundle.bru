@@ -1,0 +1,57 @@
+meta {
+  name: Get PreKey Bundle
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/signal/pre-key-bundle/{{peerId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:pre-request {
+  // Make this request work standalone: if peerId isn't set yet, resolve it from peerUsername.
+  if (!bru.getEnvVar("peerId")) {
+    const base = bru.getEnvVar("baseUrl");
+    const token = bru.getEnvVar("accessToken");
+    const q = bru.getEnvVar("peerUsername");
+    if (typeof fetch === "function" && base && token && q) {
+      const r = await fetch(base + "/api/users/search?q=" + encodeURIComponent(q), {
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (r.ok) {
+        const users = await r.json();
+        if (Array.isArray(users) && users.length) {
+          bru.setEnvVar("peerId", users[0].id);
+          console.log("auto-resolved peerId=" + users[0].id);
+        }
+      }
+    }
+  }
+  if (!bru.getEnvVar("peerId")) {
+    throw new Error("peerId is not set. Run 'Auth / Login' then 'Users / Search Peer' first (or check that peerUsername exists).");
+  }
+}
+
+tests {
+  test("peer has a publishable bundle", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.identityKey).to.be.a("string");
+    expect(res.body.signedPreKey).to.be.an("object");
+  });
+}
+
+docs {
+  Fetches {{peerId}}'s pre-key bundle (identity key + signed pre-key + one one-time pre-key),
+  consuming one OTPK. This is exactly what a sender's client calls before encrypting the first
+  message.
+
+  The pre-request script auto-fills {{peerId}} from {{peerUsername}} if it's empty, so you can
+  run this on its own (after Login). A 404 means the peer never provisioned — that is why
+  "message not being sent" can fail on the client before any /messages request is made.
+}

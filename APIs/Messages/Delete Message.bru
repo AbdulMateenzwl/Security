@@ -1,0 +1,20 @@
+meta {
+  name: Delete Message
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/api/messages/{{messageId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  Deletes {{messageId}} (sender only — anyone else gets 403). Returns 204. Handy for cleaning
+  up the dummy row created by Send Message.
+}

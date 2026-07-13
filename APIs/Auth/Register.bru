@@ -1,0 +1,41 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{username}}",
+    "email": "{{username}}@example.com",
+    "password": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 || res.status === 201) {
+    bru.setEnvVar("accessToken", res.body.accessToken);
+    bru.setEnvVar("refreshToken", res.body.refreshToken);
+    bru.setEnvVar("userId", res.body.user.id);
+    console.log("Registered userId=" + res.body.user.id);
+  }
+}
+
+tests {
+  test("registered (200/201)", function () {
+    expect([200, 201]).to.include(res.status);
+    expect(res.body.accessToken).to.be.a("string");
+  });
+}
+
+docs {
+  Creates a new account. On success, saves accessToken, refreshToken and userId to the
+  environment so every later request is authenticated automatically.
+  Username/email must be unique — bump `username` in the environment if it already exists.
+}

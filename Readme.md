@@ -67,6 +67,7 @@ Week 8:
 - feat: implement chat functionality with user search and chat creation features
 - feat: implement the client-side Signal key-setup (device provisioning) feature — the browser generates the identity key pair, registration id, a signed pre-key and a batch of one-time pre-keys with @privacyresearch/libsignal-protocol-typescript, stores the PRIVATE halves in IndexedDB (per user, never sent to the server), and publishes only the public halves to /api/signal. Real X3DH session establishment + Double Ratchet encrypt/decrypt are wired for the messaging feature; verified with an Alice→Bob round-trip. Added a Security page showing the safety number (identity fingerprint), registration id and remaining one-time pre-keys with replenish/reset, plus auto-provisioning on first sign-in.
 - feat: implement the encrypted messaging view and live delivery — open a DIRECT chat at /chats/:id, decrypt history in ratchet order (cached once locally), and send by encrypting to the peer. Live delivery runs over WebSocket/STOMP (@stomp/stompjs): the client connects to /ws?token=<jwt>, subscribes to /topic/chat/{chatId} and renders peer messages the instant they arrive, with a Live/Connecting indicator, auto-reconnect + re-subscribe, and typing indicators. Sending stays on REST (returns the id so the sender can cache its own plaintext); the socket echo of our own message is de-duplicated by id. Group chats show an "encryption not available yet" notice; the server only ever sees opaque ciphertext.
+- feat: add live delivery over WebSocket/STOMP — subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -110,6 +111,14 @@ Commit 30: feat: implement chat functionality with user search and chat creation
 Commit 31: feat: implement the encrypted messaging view (/chats/:id) — decrypt history in ratchet order with local plaintext caching, encrypt-and-send for direct chats; group chats flagged unsupported
 Commit 32: feat: add live delivery over WebSocket/STOMP — subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
 Commit 33: updated the connection service and implemented with new service which checks for all the chats
+Commit 34: feat: enhance authentication flow with token refresh and user identity management
+
+
+
+# Signal Protocol Implementation Errors
+- Commit 34: Implemented the token refresh and user identity management, but there is an error in the implementation of the Signal Protocol. The error is that the client is not able to establish a secure session with the server. The error is due to the fact that the client is not able to generate a valid pre-key bundle for the server. The pre-key bundle is generated using the client's identity key and signed pre-key, but the server is not able to verify the signature of the pre-key bundle. This is because the server does not have access to the client's identity key, which is stored in IndexedDB on the client side. 
+
+``` Took more than 9 hours and span of 2 days to fix the issue. The solution was to implement a new endpoint on the server that allows the client to send its identity key to the server, so that the server can verify the signature of the pre-key bundle. The new endpoint is /api/signal/identity, which accepts a POST request with the client's identity key in the request body. The server then stores the identity key in its database and uses it to verify the signature of the pre-key bundle when establishing a secure session with the client.```
 
 # General References
 

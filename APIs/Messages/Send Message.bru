@@ -1,0 +1,101 @@
+meta {
+  name: Send Message
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/chats/{{chatId}}/messages
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "ciphertext": "AAECAwQFBgcICQ==",
+    "ciphertextType": 1
+  }
+}
+
+script:pre-request {
+  // Make Send Message work right after Login: resolve chatId if it isn't set.
+  const base = bru.getEnvVar("baseUrl");
+  const token = bru.getEnvVar("accessToken");
+  const authHeaders = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
+
+  if (!token) {
+    throw new Error("accessToken is not set. Run 'Auth / Login' first.");
+  }
+
+  if (!bru.getEnvVar("chatId") && typeof fetch === "function") {
+    // 1) reuse an existing chat if there is one
+    const listRes = await fetch(base + "/api/chats", { headers: authHeaders });
+    if (listRes.ok) {
+      const chats = await listRes.json();
+      if (Array.isArray(chats) && chats.length) {
+        bru.setEnvVar("chatId", chats[0].id);
+      }
+    }
+    // 2) otherwise create a direct chat with the peer
+    if (!bru.getEnvVar("chatId")) {
+      let peerId = bru.getEnvVar("peerId");
+      if (!peerId) {
+        const q = bru.getEnvVar("peerUsername");
+        const sr = await fetch(base + "/api/users/search?q=" + encodeURIComponent(q), { headers: authHeaders });
+        if (sr.ok) {
+          const users = await sr.json();
+          if (Array.isArray(users) && users.length) { peerId = users[0].id; bru.setEnvVar("peerId", peerId); }
+        }
+      }
+      if (peerId) {
+        const cr = await fetch(base + "/api/chats", { method: "POST", headers: authHeaders, body: JSON.stringify({ type: "DIRECT", memberIds: [peerId] }) });
+        if (cr.ok) { const c = await cr.json(); bru.setEnvVar("chatId", c.id); }
+      }
+    }
+  }
+
+  if (!bru.getEnvVar("chatId")) {
+    throw new Error("chatId not set. Run 'Chats / List Chats' or 'Chats / Create Direct Chat' first.");
+  }
+  console.log("Sending to chatId=" + bru.getEnvVar("chatId"));
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("messageId", res.body.id);
+    console.log("Sent messageId=" + res.body.id);
+  }
+}
+
+tests {
+  test("message persisted (201)", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.id).to.be.a("string");
+    expect(res.body.chatId).to.equal(bru.getEnvVar("chatId"));
+  });
+}
+
+docs {
+  THE KEY DIAGNOSTIC. Posts a message to {{chatId}} with a DUMMY Base64 ciphertext (the
+  server is a blind relay and never decrypts, so any bytes are accepted). `ciphertextType`
+  is 1 = WhisperMessage, 3 = PreKeyWhisperMessage.
+
+  The pre-request script auto-resolves {{chatId}} (reuse first chat, else create a direct chat
+  with {{peerUsername}}), so you can run this straight after Login.
+
+  How to read the result:
+    • 201  -> the SERVER send path works end-to-end. If the web app still "can't send", the
+              failure is CLIENT-SIDE (Signal encryption / session), not the API. Check
+              Signal / Get PreKey Bundle for the peer next.
+    • 401  -> access token expired — run Refresh Token (or Login) and retry.
+    • 403  -> you are not a member of {{chatId}}.
+    • 404  -> {{chatId}} is wrong/empty.
+    • 429  -> rate limited; wait a bit.
+
+  This inserts an undecryptable dummy row; run Delete Message afterwards to clean it up
+  ({{messageId}} is saved for you).
+}

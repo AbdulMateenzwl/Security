@@ -1,0 +1,33 @@
+meta {
+  name: List Chats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/chats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  if (res.status === 200 && Array.isArray(res.body) && res.body.length > 0) {
+    bru.setEnvVar("chatId", res.body[0].id);
+    console.log("chatId=" + res.body[0].id + " (first of " + res.body.length + ")");
+  }
+}
+
+tests {
+  test("chats listed", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Lists the current account's chats and saves the first one's id as {{chatId}} so Send
+  Message / Get History work immediately. Prefer Create Direct Chat if you want a specific peer.
+}

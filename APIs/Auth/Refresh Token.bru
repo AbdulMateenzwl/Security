@@ -1,0 +1,37 @@
+meta {
+  name: Refresh Token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/auth/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refreshToken": "{{refreshToken}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setEnvVar("accessToken", res.body.accessToken);
+    bru.setEnvVar("refreshToken", res.body.refreshToken);
+    console.log("Refreshed access token");
+  }
+}
+
+tests {
+  test("refresh ok", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.accessToken).to.be.a("string");
+  });
+}
+
+docs {
+  Exchanges {{refreshToken}} for a new access/refresh pair (same flow the web app uses
+  silently on a 401). Updates the stored tokens.
+}
