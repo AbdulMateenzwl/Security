@@ -19,6 +19,7 @@ import { SignalProtocolStore } from '../crypto/signal-store';
 import { PreKeyDto } from '../models/signal.models';
 import { AuthService } from './auth.service';
 import { SignalApiService } from './signal-api.service';
+import { UserService } from './user.service';
 
 /** This project models one device per user. */
 const DEVICE_ID = 1;
@@ -52,6 +53,7 @@ export interface EncryptedPayload {
 export class SignalService {
   private readonly api = inject(SignalApiService);
   private readonly auth = inject(AuthService);
+  private readonly users = inject(UserService);
 
   private store: SignalProtocolStore | null = null;
   private storeUserId: string | null = null;
@@ -89,8 +91,16 @@ export class SignalService {
   private async doProvision(): Promise<void> {
     const store = this.getStore();
     if (await store.isProvisioned()) {
-      this.state.set('ready');
-      return;
+      // Locally provisioned — but the server must still agree with THIS device's identity. It can
+      // drift if the keys were replaced from another browser/device or lost server-side; when that
+      // happens our local sessions are unusable and every peer's session setup with us fails. Detect
+      // the divergence and re-provision a fresh, consistent key set so messaging self-heals.
+      if (await this.serverMatchesLocalIdentity()) {
+        this.state.set('ready');
+        return;
+      }
+      console.warn('[signal] server identity out of sync with this device — re-provisioning');
+      await store.clearAll();
     }
     this.state.set('provisioning');
     try {
@@ -129,6 +139,22 @@ export class SignalService {
     } catch (err) {
       this.state.set('error');
       throw err;
+    }
+  }
+
+  /**
+   * Whether the server's published identity fingerprint for this user still matches the key held
+   * locally. On any error (e.g. offline) we assume it matches, to avoid needlessly wiping keys.
+   */
+  private async serverMatchesLocalIdentity(): Promise<boolean> {
+    try {
+      const localFp = await this.getFingerprint();
+      const userId = this.auth.user()?.id;
+      if (!localFp || !userId) return false;
+      const { fingerprint } = await firstValueFrom(this.users.fingerprint(userId));
+      return fingerprint != null && fingerprint.toLowerCase() === localFp.toLowerCase();
+    } catch {
+      return true;
     }
   }
 

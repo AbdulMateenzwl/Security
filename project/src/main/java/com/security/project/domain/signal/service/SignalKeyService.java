@@ -1,5 +1,6 @@
 package com.security.project.domain.signal.service;
 
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -56,19 +57,33 @@ public class SignalKeyService {
     }
 
     /**
-     * Store (or replace) a user's public identity key, and cache its hex fingerprint on the user for
+     * Store (or rotate) a user's public identity key, and cache its hex fingerprint on the user for
      * out-of-band MITM ("safety number") verification. Private keys are never accepted.
+     *
+     * <p>Re-uploading the same key is a no-op. Uploading a <em>different</em> key is an identity
+     * rotation (new device, or a browser whose local keys were cleared): the previously published
+     * signed and one-time pre-keys were bound to the old identity/device and their private halves
+     * are gone, so they are discarded here. Leaving them would advertise a bundle with a new identity
+     * next to a signed pre-key whose signature no longer verifies, and one-time pre-keys nobody can
+     * decrypt against — which silently breaks session setup for every peer. The client re-uploads a
+     * fresh, consistent set immediately after (see {@link #uploadPreKeys}).</p>
      */
     @Transactional
     public void uploadIdentityKey(UUID userId, IdentityKeyUploadRequest request) {
         User user = userRepository.getByIdOrThrow(userId);
 
-        IdentityKey identityKey = identityKeyRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    IdentityKey k = new IdentityKey();
-                    k.setUser(user);
-                    return k;
-                });
+        IdentityKey identityKey = identityKeyRepository.findByUserId(userId).orElse(null);
+        boolean rotating = identityKey != null
+                && !Arrays.equals(identityKey.getPublicKey(), request.publicKey());
+        if (rotating) {
+            log.warn("Identity key rotated for user id={} — clearing stale signed/one-time pre-keys", userId);
+            signedPreKeyRepository.deleteAllByUserId(userId);
+            oneTimePreKeyRepository.deleteAllByUserId(userId);
+        }
+        if (identityKey == null) {
+            identityKey = new IdentityKey();
+            identityKey.setUser(user);
+        }
         identityKey.setPublicKey(request.publicKey());
         identityKey.setRegistrationId(request.registrationId());
         identityKeyRepository.save(identityKey);

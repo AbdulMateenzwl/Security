@@ -30,6 +30,9 @@ interface RenderedMessage {
   styleUrl: './conversation.scss',
 })
 export class Conversation implements OnDestroy {
+  /** History page size — mirrors the backend's default `limit`. */
+  private static readonly PAGE_SIZE = 30;
+
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   private readonly chatService = inject(ChatService);
@@ -47,9 +50,15 @@ export class Conversation implements OnDestroy {
   readonly sending = signal(false);
   readonly unsupportedGroup = signal(false);
   readonly peerTyping = signal(false);
+  /** Whether older history pages may still exist (last page came back full). */
+  readonly hasMore = signal(false);
+  /** A backward page is in flight (drives the top spinner and guards re-entry). */
+  readonly loadingOlder = signal(false);
   readonly connected = this.realtime.connected;
 
   readonly draft = new FormControl('', { nonNullable: true });
+  /** Whether the composer is empty — a signal so the Send button stays reactive in this zoneless app. */
+  readonly draftEmpty = signal(true);
 
   /** Unsubscribe callbacks for the current chat's live topics. */
   private liveUnsubs: Array<() => void> = [];
@@ -85,6 +94,8 @@ export class Conversation implements OnDestroy {
     this.error.set(null);
     this.unsupportedGroup.set(false);
     this.peerTyping.set(false);
+    this.hasMore.set(false);
+    this.loadingOlder.set(false);
     this.messages.set([]);
     try {
       await this.signalService.ensureProvisioned();
@@ -106,14 +117,12 @@ export class Conversation implements OnDestroy {
         return;
       }
 
-      const history = await firstValueFrom(this.messageService.history(chatId));
-      // Backend returns newest-first; decrypt oldest-first to respect ratchet ordering.
-      const chronological = [...history].reverse();
-      const rendered: RenderedMessage[] = [];
-      for (const m of chronological) {
-        rendered.push(await this.render(m, peer.userId));
-      }
-      this.messages.set(rendered);
+      const history = await firstValueFrom(
+        this.messageService.history(chatId, undefined, Conversation.PAGE_SIZE),
+      );
+      // A full page back means there may be older history to page in on scroll-up.
+      this.hasMore.set(history.length >= Conversation.PAGE_SIZE);
+      this.messages.set(await this.renderPage(history, peer.userId));
       this.loading.set(false);
       this.scrollToBottomSoon();
 
@@ -129,17 +138,24 @@ export class Conversation implements OnDestroy {
     }
   }
 
-  /** A message pushed over the socket. Decrypt peer messages; dedupe our own echoed send. */
+  /** A message pushed over the socket. Peer messages only — our own are shown optimistically. */
   private async onLiveMessage(m: Message, peerUserId: string): Promise<void> {
+    // Our own messages are appended optimistically by send(); ignore the server's echo of them.
+    // This also avoids a race where the echo arrives before send() has cached our plaintext, which
+    // would otherwise render our own message as an undecryptable placeholder.
+    if (m.senderId === this.myId) return;
     if (this.messages().some((x) => x.id === m.id)) {
-      return; // already shown (our own optimistic send, or a duplicate)
+      return; // already shown, or a duplicate delivery
     }
     const rendered = await this.render(m, peerUserId);
-    this.messages.update((list) => [...list, rendered]);
-    if (!rendered.mine) {
-      this.peerTyping.set(false);
-    }
+    this.appendUnique(rendered);
+    this.peerTyping.set(false);
     this.scrollToBottomSoon();
+  }
+
+  /** Append a rendered message unless one with the same id is already present (atomic dedup). */
+  private appendUnique(msg: RenderedMessage): void {
+    this.messages.update((list) => (list.some((m) => m.id === msg.id) ? list : [...list, msg]));
   }
 
   private onTyping(event: TypingEvent): void {
@@ -154,6 +170,7 @@ export class Conversation implements OnDestroy {
 
   /** Notify the peer we're typing; schedule a "stopped" signal after a short idle. */
   onInput(): void {
+    this.draftEmpty.set(!this.draft.value.trim());
     const chat = this.chat();
     if (!chat || this.unsupportedGroup()) return;
     if (!this.iAmTyping) {
@@ -180,23 +197,79 @@ export class Conversation implements OnDestroy {
     this.liveUnsubs = [];
   }
 
-  /** Refresh to pull in messages that arrived since the last load. */
+  /** Refresh to pull in messages that arrived since the last load (resets to the newest page). */
   async refresh(): Promise<void> {
     const chat = this.chat();
     const peer = this.peer();
     if (!chat || !peer) return;
     try {
-      const history = await firstValueFrom(this.messageService.history(chat.id));
-      const chronological = [...history].reverse();
-      const rendered: RenderedMessage[] = [];
-      for (const m of chronological) {
-        rendered.push(await this.render(m, peer.userId));
-      }
-      this.messages.set(rendered);
+      const history = await firstValueFrom(
+        this.messageService.history(chat.id, undefined, Conversation.PAGE_SIZE),
+      );
+      this.hasMore.set(history.length >= Conversation.PAGE_SIZE);
+      this.messages.set(await this.renderPage(history, peer.userId));
       this.scrollToBottomSoon();
     } catch (err) {
       this.error.set(extractErrorMessage(err, 'Could not refresh messages.'));
     }
+  }
+
+  /** Near the top of the scroll area: pull in the previous page of history. */
+  onScroll(): void {
+    const el = this.scrollContainer()?.nativeElement;
+    if (el && el.scrollTop < 80 && this.hasMore() && !this.loadingOlder() && !this.loading()) {
+      void this.loadOlder();
+    }
+  }
+
+  /** Fetch the page of messages older than the oldest one we hold and prepend it. */
+  private async loadOlder(): Promise<void> {
+    const chat = this.chat();
+    const peer = this.peer();
+    const oldest = this.messages()[0];
+    if (!chat || !peer || !oldest || this.loadingOlder() || !this.hasMore()) return;
+
+    // Capture height before anything renders so we can keep the viewport anchored after prepend.
+    const prevHeight = this.scrollContainer()?.nativeElement.scrollHeight ?? 0;
+    this.loadingOlder.set(true);
+    try {
+      const older = await firstValueFrom(
+        this.messageService.history(chat.id, oldest.id, Conversation.PAGE_SIZE),
+      );
+      this.hasMore.set(older.length >= Conversation.PAGE_SIZE);
+      const rendered = await this.renderPage(older, peer.userId);
+      if (rendered.length) {
+        this.messages.update((list) => [...rendered, ...list]);
+        this.anchorAfterPrepend(prevHeight);
+      }
+    } catch (err) {
+      this.error.set(extractErrorMessage(err, 'Could not load earlier messages.'));
+    } finally {
+      this.loadingOlder.set(false);
+    }
+  }
+
+  /**
+   * Turn a backend page (newest-first) into display rows. Decrypt oldest-first so the ratchet is
+   * advanced in order within the page.
+   */
+  private async renderPage(page: Message[], peerUserId: string): Promise<RenderedMessage[]> {
+    const chronological = [...page].reverse();
+    const rendered: RenderedMessage[] = [];
+    for (const m of chronological) {
+      rendered.push(await this.render(m, peerUserId));
+    }
+    return rendered;
+  }
+
+  /** After prepending older messages, shift scrollTop so the user stays on the same message. */
+  private anchorAfterPrepend(prevHeight: number): void {
+    setTimeout(() => {
+      const el = this.scrollContainer()?.nativeElement;
+      if (el) {
+        el.scrollTop += el.scrollHeight - prevHeight;
+      }
+    });
   }
 
   /** Turn a stored message into a display row, decrypting incoming ones (cached, once, in order). */
@@ -220,6 +293,14 @@ export class Conversation implements OnDestroy {
     }
   }
 
+  /** Native form submit (Enter key or the Send button). Prevent the browser's default page
+   *  navigation — without an NgForm/[formGroup] on the form, (ngSubmit) never fires, so we handle
+   *  the raw submit event ourselves. */
+  onSubmit(event: Event): void {
+    event.preventDefault();
+    void this.send();
+  }
+
   async send(): Promise<void> {
     const text = this.draft.value.trim();
     const chat = this.chat();
@@ -233,11 +314,9 @@ export class Conversation implements OnDestroy {
       const { ciphertext, ciphertextType } = await this.signalService.encrypt(peer.userId, text);
       const saved = await firstValueFrom(this.messageService.send(chat.id, { ciphertext, ciphertextType }));
       await this.signalService.cacheSentPlaintext(saved.id, text);
-      this.messages.update((list) => [
-        ...list,
-        { id: saved.id, mine: true, text, failed: false, createdAt: saved.createdAt },
-      ]);
+      this.appendUnique({ id: saved.id, mine: true, text, failed: false, createdAt: saved.createdAt });
       this.draft.setValue('');
+      this.draftEmpty.set(true);
       this.scrollToBottomSoon();
     } catch (err) {
       this.error.set(extractErrorMessage(err, 'Could not send your message.'));

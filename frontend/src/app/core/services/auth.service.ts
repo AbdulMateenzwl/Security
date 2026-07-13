@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AuthResponse,
@@ -34,6 +34,20 @@ export class AuthService {
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http
       .post<AuthResponse>(`${this.baseUrl}/login`, request)
+      .pipe(tap((res) => this.setSession(res)));
+  }
+
+  /**
+   * Exchange the stored refresh token for a new access/refresh pair. Used by the auth interceptor to
+   * silently recover from an expired access token instead of forcing a re-login.
+   */
+  refresh(): Observable<AuthResponse> {
+    const refreshToken = this.storage.refreshToken;
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token available'));
+    }
+    return this.http
+      .post<AuthResponse>(`${this.baseUrl}/refresh`, { refreshToken })
       .pipe(tap((res) => this.setSession(res)));
   }
 
