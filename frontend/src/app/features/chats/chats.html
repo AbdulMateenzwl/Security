@@ -34,12 +34,15 @@
   } @else {
     <ul class="chat-list card">
       @for (chat of chats(); track chat.id) {
-        <li class="chat-row" (click)="open(chat)">
+        <li class="chat-row" [class.unread]="isUnread(chat)" (click)="open(chat)">
           <span class="avatar">{{ initial(chat) }}</span>
           <span class="chat-meta">
             <span class="chat-name">{{ displayName(chat) }}</span>
             <span class="chat-sub text-muted">{{ subtitle(chat) }}</span>
           </span>
+          @if (isUnread(chat)) {
+            <span class="unread-dot" title="New message"></span>
+          }
           @if (chat.type === 'GROUP') {
             <span class="badge">Group</span>
           }

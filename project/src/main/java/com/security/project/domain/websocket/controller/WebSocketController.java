@@ -13,7 +13,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import com.security.project.config.properties.RateLimitProperties;
-import com.security.project.domain.chat.dto.MessageDto;
 import com.security.project.domain.chat.dto.SendMessageRequest;
 import com.security.project.domain.chat.service.ChatAccessGuard;
 import com.security.project.domain.chat.service.MessageService;
@@ -64,9 +63,9 @@ public class WebSocketController {
                 .isConsumed()) {
             throw new MessagingException("Message rate limit exceeded — slow down");
         }
-        MessageDto dto = messageService.sendMessage(userId, msg.chatId(),
+        // sendMessage persists and fans the message out to /topic/chat/{chatId} after commit.
+        messageService.sendMessage(userId, msg.chatId(),
                 new SendMessageRequest(msg.ciphertext(), msg.ciphertextType(), msg.replyToMessageId()));
-        broker.convertAndSend("/topic/chat/" + msg.chatId(), dto);
     }
 
     /** Broadcast a typing indicator to the chat (not persisted). */

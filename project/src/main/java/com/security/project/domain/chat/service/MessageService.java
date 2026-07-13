@@ -8,9 +8,12 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.security.project.domain.chat.dto.MessageDto;
 import com.security.project.domain.chat.dto.SendMessageRequest;
@@ -47,17 +50,20 @@ public class MessageService {
     private final ChatRepository chatRepository;
     private final ChatAccessGuard chatAccessGuard;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate broker;
 
     public MessageService(MessageRepository messageRepository,
                           MessageReceiptRepository receiptRepository,
                           ChatRepository chatRepository,
                           ChatAccessGuard chatAccessGuard,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          SimpMessagingTemplate broker) {
         this.messageRepository = messageRepository;
         this.receiptRepository = receiptRepository;
         this.chatRepository = chatRepository;
         this.chatAccessGuard = chatAccessGuard;
         this.userRepository = userRepository;
+        this.broker = broker;
     }
 
     /** Send an encrypted message to a chat the caller belongs to. */
@@ -90,7 +96,31 @@ public class MessageService {
 
         Message saved = messageRepository.save(message);
         log.info("Message id={} sent to chat id={} by user id={}", saved.getId(), chatId, senderId);  // never log ciphertext
-        return MessageDto.from(saved);
+
+        // Fan the message out live to the chat's subscribers. Do it only after the transaction
+        // commits, so a rolled-back send is never broadcast. The DTO is built eagerly here (no lazy
+        // access happens in the callback). Both entry points — this REST path and the WebSocket
+        // @MessageMapping("/chat.send") handler — go through here, so fan-out lives in one place.
+        MessageDto dto = MessageDto.from(saved);
+        broadcastAfterCommit(chatId, dto);
+        return dto;
+    }
+
+    /**
+     * Send {@code dto} to {@code /topic/chat/{chatId}} once the current transaction commits. If no
+     * transaction synchronization is active (e.g. a non-transactional caller), send immediately.
+     */
+    private void broadcastAfterCommit(UUID chatId, MessageDto dto) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            broker.convertAndSend("/topic/chat/" + chatId, dto);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                broker.convertAndSend("/topic/chat/" + chatId, dto);
+            }
+        });
     }
 
     /**

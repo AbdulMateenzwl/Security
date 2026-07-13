@@ -109,6 +109,7 @@ Commit 30: feat: implement client-side Signal key-setup — browser keygen, Inde
 Commit 30: feat: implement chat functionality with user search and chat creation features
 Commit 31: feat: implement the encrypted messaging view (/chats/:id) — decrypt history in ratchet order with local plaintext caching, encrypt-and-send for direct chats; group chats flagged unsupported
 Commit 32: feat: add live delivery over WebSocket/STOMP — subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
+Commit 33: updated the connection service and implemented with new service which checks for all the chats
 
 # General References
 
