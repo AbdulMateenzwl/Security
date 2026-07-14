@@ -16,6 +16,31 @@
 @if (loading()) {
   <p class="text-muted center">Loading tasks…</p>
 } @else {
+  <div class="filters">
+    <label class="filter">
+      <span>Assignee</span>
+      <select [value]="assigneeFilter()" (change)="assigneeFilter.set($any($event.target).value)">
+        <option value="">Everyone</option>
+        <option value="__me">Me</option>
+        @for (m of members; track m.userId) {
+          <option [value]="m.userId">{{ m.username }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
+      <span>Priority</span>
+      <select [value]="priorityFilter()" (change)="priorityFilter.set($any($event.target).value)">
+        <option value="">Any</option>
+        @for (p of priorities; track p) {
+          <option [value]="p">{{ p }}</option>
+        }
+      </select>
+    </label>
+    @if (filtersActive()) {
+      <button class="btn btn-ghost sm" (click)="clearFilters()">Clear filters</button>
+    }
+  </div>
+
   <div class="board" cdkDropListGroup>
     @for (status of statuses; track status) {
       <section class="column">

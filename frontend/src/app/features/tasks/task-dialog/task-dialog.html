@@ -75,5 +75,25 @@
         </button>
       </div>
     </form>
+
+    @if (isEdit) {
+      <section class="history">
+        <h3>History</h3>
+        @if (loadingActivity()) {
+          <p class="text-muted sm">Loading…</p>
+        } @else if (!activities().length) {
+          <p class="text-muted sm">No activity yet.</p>
+        } @else {
+          <ul class="activity">
+            @for (a of activities(); track a.id) {
+              <li>
+                <span class="act-text">{{ describe(a) }}</span>
+                <span class="act-time text-muted">{{ a.createdAt | date: 'MMM d, h:mm a' }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
   </div>
 </div>

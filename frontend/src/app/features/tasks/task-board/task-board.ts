@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
@@ -9,10 +9,12 @@ import { RealtimeService } from '../../../core/services/realtime.service';
 import { TaskService } from '../../../core/services/task.service';
 import { Chat, ChatMember } from '../../../core/models/chat.models';
 import {
+  TASK_PRIORITIES,
   TASK_STATUSES,
   TASK_STATUS_LABELS,
   Task,
   TaskBoard as TaskBoardModel,
+  TaskPriority,
   TaskStatus,
 } from '../../../core/models/task.models';
 import { extractErrorMessage } from '../../../core/util/api-error';
@@ -36,6 +38,7 @@ export class TaskBoard implements OnDestroy {
 
   readonly statuses = TASK_STATUSES;
   readonly statusLabels = TASK_STATUS_LABELS;
+  readonly priorities = TASK_PRIORITIES;
 
   readonly chat = signal<Chat | null>(null);
   readonly board = signal<TaskBoardModel>(emptyBoard());
@@ -43,6 +46,29 @@ export class TaskBoard implements OnDestroy {
   readonly error = signal<string | null>(null);
   readonly showCreate = signal(false);
   readonly editing = signal<Task | null>(null);
+
+  /** Filters (applied client-side over the full board so drag-drop + realtime keep working).
+   *  assignee: '' = everyone, '__me' = current user, otherwise a userId. */
+  readonly assigneeFilter = signal<string>('');
+  readonly priorityFilter = signal<TaskPriority | ''>('');
+  readonly filtersActive = computed(() => this.assigneeFilter() !== '' || this.priorityFilter() !== '');
+
+  /** The board with the active filters applied — memoized so column arrays stay stable for CDK. */
+  private readonly filteredBoard = computed<TaskBoardModel>(() => {
+    const board = this.board();
+    const assignee = this.assigneeFilter();
+    const priority = this.priorityFilter();
+    const myId = this.auth.user()?.id;
+    const matches = (t: Task): boolean => {
+      if (assignee === '__me' && t.assignedTo !== myId) return false;
+      if (assignee !== '' && assignee !== '__me' && t.assignedTo !== assignee) return false;
+      if (priority !== '' && t.priority !== priority) return false;
+      return true;
+    };
+    const out = emptyBoard();
+    for (const s of TASK_STATUSES) out[s] = board[s].filter(matches);
+    return out;
+  });
 
   private chatId = '';
   private memberNames = new Map<string, string>();
@@ -72,7 +98,12 @@ export class TaskBoard implements OnDestroy {
   }
 
   tasksFor(status: TaskStatus): Task[] {
-    return this.board()[status];
+    return this.filteredBoard()[status];
+  }
+
+  clearFilters(): void {
+    this.assigneeFilter.set('');
+    this.priorityFilter.set('');
   }
 
   memberName(userId: string | null): string {

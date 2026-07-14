@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ChatMember } from '../../../core/models/chat.models';
@@ -6,6 +7,7 @@ import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
   Task,
+  TaskActivity,
   TaskPriority,
   TaskStatus,
   UpdateTaskRequest,
@@ -13,10 +15,10 @@ import {
 import { TaskService } from '../../../core/services/task.service';
 import { extractErrorMessage } from '../../../core/util/api-error';
 
-/** Create or edit a task. If [task] is provided it's edit mode (with status + delete); else create. */
+/** Create or edit a task. If [task] is provided it's edit mode (with status, history + delete); else create. */
 @Component({
   selector: 'app-task-dialog',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, DatePipe],
   templateUrl: './task-dialog.html',
   styleUrl: './task-dialog.scss',
 })
@@ -48,6 +50,10 @@ export class TaskDialog implements OnInit {
   readonly deleting = signal(false);
   readonly error = signal<string | null>(null);
 
+  /** Activity log (edit mode) — newest first. */
+  readonly activities = signal<TaskActivity[]>([]);
+  readonly loadingActivity = signal(false);
+
   ngOnInit(): void {
     const t = this.task();
     if (t) {
@@ -58,7 +64,53 @@ export class TaskDialog implements OnInit {
       this.assignedToId.setValue(t.assignedTo ?? '');
       this.dueDate.setValue(t.dueDate ? t.dueDate.slice(0, 10) : '');
       this.labels.setValue(t.labels.join(', '));
+      this.loadActivity(t.id);
     }
+  }
+
+  private loadActivity(taskId: string): void {
+    this.loadingActivity.set(true);
+    this.taskService.activity(taskId).subscribe({
+      next: (log) => {
+        this.activities.set([...log].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+        this.loadingActivity.set(false);
+      },
+      error: () => this.loadingActivity.set(false),
+    });
+  }
+
+  /** A human-readable sentence for one activity-log entry. */
+  describe(a: TaskActivity): string {
+    const who = a.performedByUsername;
+    switch (a.action) {
+      case 'CREATED':
+        return `${who} created this task`;
+      case 'STATUS_CHANGED':
+        return `${who} moved this from ${this.statusText(a.oldValue)} to ${this.statusText(a.newValue)}`;
+      case 'PRIORITY_CHANGED':
+        return `${who} changed priority from ${a.oldValue} to ${a.newValue}`;
+      case 'ASSIGNED':
+        return `${who} assigned this to ${a.newValue}`;
+      case 'UNASSIGNED':
+        return `${who} unassigned this`;
+      case 'DUE_DATE_CHANGED':
+        return `${who} changed the due date`;
+      case 'TITLE_CHANGED':
+        return `${who} renamed this task`;
+      case 'DESCRIPTION_CHANGED':
+        return `${who} edited the description`;
+      case 'DELETED':
+        return `${who} deleted this task`;
+      default:
+        return `${who} updated this task`;
+    }
+  }
+
+  private statusText(value: string | null): string {
+    if (value && value in TASK_STATUS_LABELS) {
+      return TASK_STATUS_LABELS[value as TaskStatus];
+    }
+    return value ?? '';
   }
 
   get isEdit(): boolean {

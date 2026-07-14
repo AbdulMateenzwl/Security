@@ -70,6 +70,7 @@ Week 8:
 - feat: add live delivery over WebSocket/STOMP — subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
 - feat: enhance message handling for device provisioning and identity changes 
 - Feat: added Kanban board integration and connection to backend
+- Added new feature which will record every change (create, status/priority/title/description/due-date changes, assignment) automatically in the database, with service-layer authorization. On Every change, the activity log will be updated with the changes made to the task. This will help in tracking the changes made to the task and will also help in auditing the changes made to the task.
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -117,6 +118,7 @@ Commit 34: feat: enhance authentication flow with token refresh and user identit
 Commit 35: feat: improve identity provisioning and synchronization in SignalService
 Commit 36: feat: enhance message handling for device provisioning and identity changes
 Commit 37: Feat: added Kanban board integration and connection to backend
+Commit 38: feat: Activity Log for Task domain — record every change (create, status/priority/title/description/due-date changes, assignment) automatically in the database, with service-layer authorization
 
 
 

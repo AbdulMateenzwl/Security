@@ -46,6 +46,13 @@
           @if (chat.type === 'GROUP') {
             <span class="badge">Group</span>
           }
+          <a
+            class="row-tasks"
+            [routerLink]="['/chats', chat.id, 'tasks']"
+            (click)="$event.stopPropagation()"
+            title="Task board"
+            aria-label="Task board"
+          >☑ Tasks</a>
         </li>
       }
     </ul>
