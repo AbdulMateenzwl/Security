@@ -54,7 +54,12 @@ export class Conversation implements OnDestroy {
   readonly hasMore = signal(false);
   /** A backward page is in flight (drives the top spinner and guards re-entry). */
   readonly loadingOlder = signal(false);
+  /** True when some messages predate this device and were hidden (shows an explanatory divider). */
+  readonly hasHiddenHistory = signal(false);
   readonly connected = this.realtime.connected;
+
+  /** Epoch-ms this device provisioned; messages older than this can't be decrypted here (0 = show all). */
+  private provisionedAt = 0;
 
   readonly draft = new FormControl('', { nonNullable: true });
   /** Whether the composer is empty — a signal so the Send button stays reactive in this zoneless app. */
@@ -96,9 +101,12 @@ export class Conversation implements OnDestroy {
     this.peerTyping.set(false);
     this.hasMore.set(false);
     this.loadingOlder.set(false);
+    this.hasHiddenHistory.set(false);
     this.messages.set([]);
     try {
       await this.signalService.ensureProvisioned();
+      // Messages older than this device can't be decrypted here — hide them (WhatsApp-style).
+      this.provisionedAt = (await this.signalService.getProvisionedAt()) ?? 0;
       const chat = await firstValueFrom(this.chatService.get(chatId));
       this.chat.set(chat);
 
@@ -250,11 +258,16 @@ export class Conversation implements OnDestroy {
   }
 
   /**
-   * Turn a backend page (newest-first) into display rows. Decrypt oldest-first so the ratchet is
-   * advanced in order within the page.
+   * Turn a backend page (newest-first) into display rows. Messages older than this device were
+   * encrypted to a previous device and can't be shown here, so they're filtered out (and a divider
+   * is flagged). The rest are decrypted oldest-first so the ratchet advances in order.
    */
   private async renderPage(page: Message[], peerUserId: string): Promise<RenderedMessage[]> {
-    const chronological = [...page].reverse();
+    const visible = page.filter((m) => new Date(m.createdAt).getTime() >= this.provisionedAt);
+    if (visible.length < page.length) {
+      this.hasHiddenHistory.set(true);
+    }
+    const chronological = [...visible].reverse();
     const rendered: RenderedMessage[] = [];
     for (const m of chronological) {
       rendered.push(await this.render(m, peerUserId));
@@ -272,7 +285,14 @@ export class Conversation implements OnDestroy {
     });
   }
 
-  /** Turn a stored message into a display row, decrypting incoming ones (cached, once, in order). */
+  /**
+   * Turn a stored message into a display row. Messages that this device can't read are shown as a
+   * direction-aware placeholder rather than raw text: one we sent but have no local plaintext for
+   * was "Sent from another device"; an incoming one we can't decrypt was "Received on another
+   * device" (it was part of another device's session). (History from before this device even
+   * existed is filtered out earlier by `renderPage`, so these placeholders only cover messages that
+   * happened on a *different* device while this one was signed out.)
+   */
   private async render(m: Message, peerUserId: string): Promise<RenderedMessage> {
     const mine = m.senderId === this.myId;
     if (mine) {
@@ -280,7 +300,7 @@ export class Conversation implements OnDestroy {
       return {
         id: m.id,
         mine: true,
-        text: cached ?? '🔒 Encrypted (sent from another device)',
+        text: cached ?? '🔒 Sent from another device',
         failed: cached === undefined,
         createdAt: m.createdAt,
       };
@@ -289,7 +309,7 @@ export class Conversation implements OnDestroy {
       const text = await this.signalService.decryptAndCache(peerUserId, m.id, m.ciphertext, m.ciphertextType);
       return { id: m.id, mine: false, text, failed: false, createdAt: m.createdAt };
     } catch {
-      return { id: m.id, mine: false, text: '🔒 Unable to decrypt', failed: true, createdAt: m.createdAt };
+      return { id: m.id, mine: false, text: '🔒 Received on another device', failed: true, createdAt: m.createdAt };
     }
   }
 

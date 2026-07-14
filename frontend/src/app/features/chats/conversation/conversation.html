@@ -30,21 +30,26 @@
   <div class="messages" #scrollContainer (scroll)="onScroll()">
     @if (loading()) {
       <p class="text-muted center">Loading messages…</p>
-    } @else if (!messages().length) {
-      <p class="text-muted center">No messages yet. Say hello 👋</p>
     } @else {
       @if (loadingOlder()) {
         <p class="text-muted center older-note">Loading earlier messages…</p>
-      } @else if (!hasMore()) {
+      } @else if (hasHiddenHistory()) {
+        <p class="text-muted center older-note">🔒 Earlier messages aren’t available on this device</p>
+      } @else if (!hasMore() && messages().length) {
         <p class="text-muted center older-note">Beginning of conversation</p>
       }
-      @for (m of messages(); track m.id) {
-        <div class="row" [class.mine]="m.mine">
-          <div class="bubble" [class.mine]="m.mine" [class.failed]="m.failed">
-            <span class="text">{{ m.text }}</span>
-            <span class="time">{{ m.createdAt | date: 'shortTime' }}</span>
+
+      @if (!messages().length) {
+        <p class="text-muted center">No messages yet. Say hello 👋</p>
+      } @else {
+        @for (m of messages(); track m.id) {
+          <div class="row" [class.mine]="m.mine">
+            <div class="bubble" [class.mine]="m.mine" [class.failed]="m.failed">
+              <span class="text">{{ m.text }}</span>
+              <span class="time">{{ m.createdAt | date: 'shortTime' }}</span>
+            </div>
           </div>
-        </div>
+        }
       }
     }
   </div>

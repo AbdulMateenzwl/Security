@@ -30,6 +30,8 @@ export const PREKEY_LOW_WATERMARK = 5;
 
 const META_NEXT_PREKEY_ID = 'nextPreKeyId';
 const META_NEXT_SIGNED_ID = 'nextSignedPreKeyId';
+/** Epoch-ms this device first provisioned. Messages older than this belong to a previous device. */
+const META_PROVISIONED_AT = 'provisionedAt';
 
 export type ProvisionState = 'unknown' | 'provisioning' | 'ready' | 'error';
 
@@ -130,6 +132,8 @@ export class SignalService {
     const registrationId = KeyHelper.generateRegistrationId();
     await store.putIdentityKeyPair(identityKeyPair);
     await store.putLocalRegistrationId(registrationId);
+    // Mark when this device came online, so the UI can hide message history from before it existed.
+    await store.setMetaNumber(META_PROVISIONED_AT, Date.now());
 
     const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, 1);
     await store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
@@ -233,6 +237,15 @@ export class SignalService {
     return (await this.getStore().getLocalRegistrationId()) ?? null;
   }
 
+  /**
+   * When this device first provisioned (epoch ms), or undefined for devices provisioned before this
+   * was tracked. Messages older than this were encrypted to a previous device and cannot be
+   * decrypted here — the conversation view hides them.
+   */
+  getProvisionedAt(): Promise<number | undefined> {
+    return this.getStore().getMetaNumber(META_PROVISIONED_AT);
+  }
+
   /** Remaining one-time pre-keys the server still holds for this user. */
   async remainingPreKeys(): Promise<number> {
     const res = await firstValueFrom(this.api.getPreKeyCount());
@@ -248,12 +261,19 @@ export class SignalService {
 
   // --- Sessions & message crypto (used by the messaging feature) ----------
 
-  /** Establish a pairwise session with a peer if one doesn't already exist. */
+  /** Establish a pairwise session with a peer, rebuilding it if the peer switched devices. */
   async ensureSession(peerUserId: string): Promise<void> {
     const store = this.getStore();
     const address = new SignalProtocolAddress(peerUserId, DEVICE_ID);
-    if (await store.loadSession(address.toString())) {
-      return;
+    const addr = address.toString();
+    if (await store.loadSession(addr)) {
+      // If the peer switched devices their published identity changed, so our session is stale.
+      // Drop it (and the remembered identity) and rebuild against their current bundle.
+      if (!(await this.peerIdentityChanged(peerUserId, addr))) {
+        return;
+      }
+      await store.removeSession(addr);
+      await store.removeIdentity(addr);
     }
     const bundle = await firstValueFrom(this.api.getPreKeyBundle(peerUserId));
     const device: DeviceType = {
@@ -273,6 +293,18 @@ export class SignalService {
     };
     const builder = new SessionBuilder(store, address);
     await builder.processPreKey(device);
+  }
+
+  /** Whether the peer's current server identity differs from the one our session was built on. */
+  private async peerIdentityChanged(peerUserId: string, addr: string): Promise<boolean> {
+    try {
+      const stored = await this.getStore().getIdentity(addr);
+      if (!stored) return false;
+      const { fingerprint } = await firstValueFrom(this.users.fingerprint(peerUserId));
+      return fingerprint != null && fingerprint.toLowerCase() !== arrayBufferToHex(stored).toLowerCase();
+    } catch {
+      return false; // can't check right now (offline) — keep using the existing session
+    }
   }
 
   /** Encrypt plaintext for a peer, returning the ciphertext ready to send to the backend. */

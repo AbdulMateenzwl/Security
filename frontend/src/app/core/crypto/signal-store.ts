@@ -177,13 +177,26 @@ export class SignalProtocolStore implements StorageType {
     return this.get<number>(STORE_META, KEY_REGISTRATION_ID);
   }
 
-  async isTrustedIdentity(identifier: string, identityKey: ArrayBuffer, _direction: Direction): Promise<boolean> {
-    const existing = await this.get<ArrayBuffer>(STORE_IDENTITIES, identifier);
-    if (!existing) {
-      // Trust-on-first-use: the safety-number check is the out-of-band MITM guard.
-      return true;
-    }
-    return equalBuffers(existing, identityKey);
+  async isTrustedIdentity(_identifier: string, _identityKey: ArrayBuffer, _direction: Direction): Promise<boolean> {
+    // Trust-on-first-use AND accept a peer's identity change (i.e. they switched to a new device).
+    // Signal would otherwise reject the new identity and permanently break messaging with them;
+    // WhatsApp-style, we accept it and rebuild the session. The out-of-band safety-number
+    // comparison remains the MITM guard (a changed number is the user's cue to re-verify).
+    return true;
+  }
+
+  /** The peer identity key we last saw for an address (used to detect a device switch). */
+  getIdentity(identifier: string): Promise<ArrayBuffer | undefined> {
+    return this.get<ArrayBuffer>(STORE_IDENTITIES, identifier);
+  }
+
+  /** Drop a stale session so it can be re-established (e.g. after the peer switched devices). */
+  async removeSession(identifier: string): Promise<void> {
+    await this.del(STORE_SESSIONS, identifier);
+  }
+
+  async removeIdentity(identifier: string): Promise<void> {
+    await this.del(STORE_IDENTITIES, identifier);
   }
 
   async saveIdentity(identifier: string, identityKey: ArrayBuffer): Promise<boolean> {
