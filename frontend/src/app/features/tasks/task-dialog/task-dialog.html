@@ -1,0 +1,79 @@
+<div class="dialog-backdrop" (click)="close()">
+  <div class="dialog card" (click)="$event.stopPropagation()">
+    <div class="dialog-head">
+      <h2>{{ isEdit ? 'Edit task' : 'New task' }}</h2>
+      <button class="icon-btn" type="button" (click)="close()" aria-label="Close">×</button>
+    </div>
+
+    @if (error()) {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    <form (submit)="onSubmit($event)">
+      <div class="form-group">
+        <label for="task-title">Title</label>
+        <input id="task-title" type="text" [formControl]="title" placeholder="What needs doing?" autocomplete="off" />
+      </div>
+
+      <div class="form-group">
+        <label for="task-desc">Description</label>
+        <textarea id="task-desc" [formControl]="description" rows="3" placeholder="Optional details…"></textarea>
+      </div>
+
+      <div class="row">
+        @if (isEdit) {
+          <div class="form-group">
+            <label for="task-status">Status</label>
+            <select id="task-status" [formControl]="status">
+              @for (s of statuses; track s) {
+                <option [value]="s">{{ statusLabels[s] }}</option>
+              }
+            </select>
+          </div>
+        }
+        <div class="form-group">
+          <label for="task-priority">Priority</label>
+          <select id="task-priority" [formControl]="priority">
+            @for (p of priorities; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label for="task-assignee">Assignee</label>
+          <select id="task-assignee" [formControl]="assignedToId">
+            <option value="">Unassigned</option>
+            @for (m of members(); track m.userId) {
+              <option [value]="m.userId">{{ m.username }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="task-due">Due date</label>
+          <input id="task-due" type="date" [formControl]="dueDate" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="task-labels">Labels</label>
+        <input id="task-labels" type="text" [formControl]="labels" placeholder="comma, separated, labels" autocomplete="off" />
+      </div>
+
+      <div class="dialog-actions">
+        @if (isEdit) {
+          <button type="button" class="btn btn-danger" (click)="remove()" [disabled]="deleting() || submitting()">
+            {{ deleting() ? 'Deleting…' : 'Delete' }}
+          </button>
+        }
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" (click)="close()">Cancel</button>
+        <button type="submit" class="btn" [disabled]="submitting() || !title.value.trim()">
+          {{ submitting() ? 'Saving…' : isEdit ? 'Save' : 'Create' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

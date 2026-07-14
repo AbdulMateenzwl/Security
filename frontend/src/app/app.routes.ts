@@ -23,6 +23,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/chats/conversation/conversation').then((m) => m.Conversation),
   },
   {
+    path: 'chats/:id/tasks',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/tasks/task-board/task-board').then((m) => m.TaskBoard),
+  },
+  {
     path: 'security',
     canActivate: [authGuard],
     loadComponent: () => import('./features/security/security').then((m) => m.Security),

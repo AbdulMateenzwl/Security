@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Client, StompSubscription } from '@stomp/stompjs';
 import { Message } from '../models/message.models';
-import { TypingEvent } from '../models/realtime.models';
+import { TaskUpdateEvent, TypingEvent } from '../models/realtime.models';
 import { TokenStorageService } from './token-storage.service';
 
 interface SubEntry {
@@ -78,6 +78,23 @@ export class RealtimeService {
   sendTyping(chatId: string, typing: boolean): void {
     if (this.client?.connected) {
       this.client.publish({ destination: '/app/chat.typing', body: JSON.stringify({ chatId, typing }) });
+    }
+  }
+
+  /** Live task-change stream for a chat's board. Returns an unsubscribe function. */
+  subscribeToTasks(chatId: string, handler: (event: TaskUpdateEvent) => void): () => void {
+    return this.addSubscription(`/topic/tasks/${chatId}`, (body) =>
+      handler(JSON.parse(body) as TaskUpdateEvent),
+    );
+  }
+
+  /** Notify a chat's members that a task changed, so their boards refresh. */
+  sendTaskUpdate(chatId: string, taskId: string, action: string): void {
+    if (this.client?.connected) {
+      this.client.publish({
+        destination: '/app/task.update',
+        body: JSON.stringify({ chatId, taskId, action }),
+      });
     }
   }
 

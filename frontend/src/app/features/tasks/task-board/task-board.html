@@ -1,0 +1,85 @@
+<header class="topbar">
+  <div class="left">
+    <a class="back" [routerLink]="['/chats', chat()?.id]" aria-label="Back to chat">‹</a>
+    <div class="head-meta">
+      <span class="title">{{ title() }}</span>
+      <span class="sub text-muted">Task board</span>
+    </div>
+  </div>
+  <button class="btn" (click)="showCreate.set(true)" [disabled]="loading() || !chat()">+ New task</button>
+</header>
+
+@if (error()) {
+  <div class="alert alert-error banner">{{ error() }}</div>
+}
+
+@if (loading()) {
+  <p class="text-muted center">Loading tasks…</p>
+} @else {
+  <div class="board" cdkDropListGroup>
+    @for (status of statuses; track status) {
+      <section class="column">
+        <header class="col-head">
+          <span class="col-title">{{ statusLabels[status] }}</span>
+          <span class="count">{{ tasksFor(status).length }}</span>
+        </header>
+
+        <div
+          class="col-list"
+          cdkDropList
+          [cdkDropListData]="tasksFor(status)"
+          (cdkDropListDropped)="drop($event, status)"
+        >
+          @for (task of tasksFor(status); track task.id) {
+            <article class="task-card" cdkDrag [cdkDragData]="task" (click)="editing.set(task)">
+              <div class="task-top">
+                <span class="prio" [class]="'prio-' + task.priority.toLowerCase()">{{ task.priority }}</span>
+                @if (task.dueDate) {
+                  <span class="due" [class.overdue]="isOverdue(task)">
+                    {{ task.dueDate | date: 'MMM d' }}
+                  </span>
+                }
+              </div>
+              <p class="task-title">{{ task.title }}</p>
+              @if (task.labels.length) {
+                <div class="labels">
+                  @for (label of task.labels; track label) {
+                    <span class="label">{{ label }}</span>
+                  }
+                </div>
+              }
+              <div class="task-foot">
+                <span class="assignee" [class.unassigned]="!task.assignedTo">
+                  {{ memberName(task.assignedTo) }}
+                </span>
+              </div>
+            </article>
+          }
+          @if (!tasksFor(status).length) {
+            <p class="empty-col text-muted">Drop tasks here</p>
+          }
+        </div>
+      </section>
+    }
+  </div>
+}
+
+@if (showCreate() && chat(); as c) {
+  <app-task-dialog
+    [chatId]="c.id"
+    [members]="members"
+    (created)="onCreated($event)"
+    (closed)="showCreate.set(false)"
+  />
+}
+
+@if (editing(); as task) {
+  <app-task-dialog
+    [chatId]="task.chatId"
+    [task]="task"
+    [members]="members"
+    (updated)="onUpdated($event)"
+    (deleted)="onDeleted($event)"
+    (closed)="editing.set(null)"
+  />
+}

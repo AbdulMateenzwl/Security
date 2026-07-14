@@ -11,7 +11,12 @@
       }
     </div>
   </div>
-  <button class="btn btn-ghost sm" (click)="refresh()" [disabled]="loading()">Refresh</button>
+  <div class="head-actions">
+    @if (chat(); as c) {
+      <a class="btn btn-ghost sm" [routerLink]="['/chats', c.id, 'tasks']">Tasks</a>
+    }
+    <button class="btn btn-ghost sm" (click)="refresh()" [disabled]="loading()">Refresh</button>
+  </div>
 </header>
 
 @if (error()) {
