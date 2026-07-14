@@ -80,6 +80,19 @@ select {
   font-family: inherit;
 }
 
+/* Replace the browser's native dropdown arrow with a custom chevron that has breathing room from
+   the border (the native arrow otherwise sits flush against the edge). */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.25rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 0.7rem;
+}
+
 input:focus,
 textarea:focus,
 select:focus {

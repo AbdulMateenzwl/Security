@@ -71,6 +71,7 @@ Week 8:
 - feat: enhance message handling for device provisioning and identity changes 
 - Feat: added Kanban board integration and connection to backend
 - Added new feature which will record every change (create, status/priority/title/description/due-date changes, assignment) automatically in the database, with service-layer authorization. On Every change, the activity log will be updated with the changes made to the task. This will help in tracking the changes made to the task and will also help in auditing the changes made to the task.
+- Added option for filters for tasks for status and assignee. This will help in filtering the tasks based on the status and assignee. This will help in finding the tasks easily and will also help in tracking the progress of the tasks.
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -119,6 +120,7 @@ Commit 35: feat: improve identity provisioning and synchronization in SignalServ
 Commit 36: feat: enhance message handling for device provisioning and identity changes
 Commit 37: Feat: added Kanban board integration and connection to backend
 Commit 38: feat: Activity Log for Task domain — record every change (create, status/priority/title/description/due-date changes, assignment) automatically in the database, with service-layer authorization
+Commit 39: Feat: Added filters for tasks for status and assignee
 
 
 
