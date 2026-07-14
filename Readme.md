@@ -112,6 +112,7 @@ Commit 31: feat: implement the encrypted messaging view (/chats/:id) — decrypt
 Commit 32: feat: add live delivery over WebSocket/STOMP — subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
 Commit 33: updated the connection service and implemented with new service which checks for all the chats
 Commit 34: feat: enhance authentication flow with token refresh and user identity management
+Commit 35: feat: improve identity provisioning and synchronization in SignalService
 
 
 

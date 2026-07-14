@@ -92,54 +92,98 @@ export class SignalService {
     const store = this.getStore();
     if (await store.isProvisioned()) {
       // Locally provisioned — but the server must still agree with THIS device's identity. It can
-      // drift if the keys were replaced from another browser/device or lost server-side; when that
-      // happens our local sessions are unusable and every peer's session setup with us fails. Detect
-      // the divergence and re-provision a fresh, consistent key set so messaging self-heals.
+      // drift if the keys were replaced from another browser/device or lost server-side.
       if (await this.serverMatchesLocalIdentity()) {
         this.state.set('ready');
         return;
       }
-      console.warn('[signal] server identity out of sync with this device — re-provisioning');
-      await store.clearAll();
+      // Server drifted from this device. This device's local identity is authoritative, so
+      // RE-PUBLISH it to the server — do NOT wipe local keys, sessions, or the decrypted-message
+      // cache. Wiping would make every previously received message permanently undecryptable
+      // (Signal message keys are consumed on first decrypt; the plaintext cache is the only copy).
+      console.warn('[signal] server identity out of sync — re-publishing this device’s identity');
+      this.state.set('provisioning');
+      try {
+        await this.republishLocalIdentity();
+        this.state.set('ready');
+      } catch (err) {
+        this.state.set('error');
+        throw err;
+      }
+      return;
     }
+    // Fresh device: generate a brand-new identity and keys.
     this.state.set('provisioning');
     try {
-      const identityKeyPair = await KeyHelper.generateIdentityKeyPair();
-      const registrationId = KeyHelper.generateRegistrationId();
-      await store.putIdentityKeyPair(identityKeyPair);
-      await store.putLocalRegistrationId(registrationId);
-
-      // Signed pre-key (id 1 for the first one).
-      const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, 1);
-      await store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
-      await store.setMetaNumber(META_NEXT_SIGNED_ID, 2);
-
-      // One-time pre-keys.
-      const preKeys = await this.generateAndStorePreKeys(PREKEY_BATCH);
-
-      // Publish PUBLIC halves only: identity key first, then the pre-key batch + signed pre-key.
-      await firstValueFrom(
-        this.api.uploadIdentityKey({
-          publicKey: arrayBufferToBase64(identityKeyPair.pubKey),
-          registrationId,
-        }),
-      );
-      await firstValueFrom(
-        this.api.uploadPreKeys({
-          preKeys,
-          signedPreKey: {
-            keyId: signedPreKey.keyId,
-            publicKey: arrayBufferToBase64(signedPreKey.keyPair.pubKey),
-            signature: arrayBufferToBase64(signedPreKey.signature),
-          },
-        }),
-      );
-
+      await this.provisionFresh();
       this.state.set('ready');
     } catch (err) {
       this.state.set('error');
       throw err;
     }
+  }
+
+  /** Generate a brand-new identity + signed pre-key + one-time batch and publish the public halves. */
+  private async provisionFresh(): Promise<void> {
+    const store = this.getStore();
+    const identityKeyPair = await KeyHelper.generateIdentityKeyPair();
+    const registrationId = KeyHelper.generateRegistrationId();
+    await store.putIdentityKeyPair(identityKeyPair);
+    await store.putLocalRegistrationId(registrationId);
+
+    const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, 1);
+    await store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
+    await store.setMetaNumber(META_NEXT_SIGNED_ID, 2);
+
+    const preKeys = await this.generateAndStorePreKeys(PREKEY_BATCH);
+    await this.publishIdentityAndPreKeys(identityKeyPair, registrationId, signedPreKey, preKeys);
+  }
+
+  /**
+   * Re-publish this device's EXISTING identity plus a fresh pre-key batch, to correct a server that
+   * has drifted out of sync — without touching local sessions or the decrypted-message cache. The
+   * backend treats the (changed) identity as a rotation and drops its stale pre-keys, so we always
+   * send a new signed pre-key + one-time batch signed by the existing identity.
+   */
+  private async republishLocalIdentity(): Promise<void> {
+    const store = this.getStore();
+    const identityKeyPair = await store.getIdentityKeyPair();
+    const registrationId = await store.getLocalRegistrationId();
+    if (!identityKeyPair || registrationId == null) {
+      await this.provisionFresh(); // local state incomplete — fall back to a fresh identity
+      return;
+    }
+    const nextSignedId = (await store.getMetaNumber(META_NEXT_SIGNED_ID)) ?? 1;
+    const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, nextSignedId);
+    await store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
+    await store.setMetaNumber(META_NEXT_SIGNED_ID, nextSignedId + 1);
+
+    const preKeys = await this.generateAndStorePreKeys(PREKEY_BATCH);
+    await this.publishIdentityAndPreKeys(identityKeyPair, registrationId, signedPreKey, preKeys);
+  }
+
+  private async publishIdentityAndPreKeys(
+    identityKeyPair: { pubKey: ArrayBuffer },
+    registrationId: number,
+    signedPreKey: { keyId: number; keyPair: { pubKey: ArrayBuffer }; signature: ArrayBuffer },
+    preKeys: PreKeyDto[],
+  ): Promise<void> {
+    await firstValueFrom(
+      this.api.uploadIdentityKey({
+        publicKey: arrayBufferToBase64(identityKeyPair.pubKey),
+        registrationId,
+      }),
+    );
+    await firstValueFrom(
+      this.api.uploadPreKeys({
+        preKeys,
+        signedPreKey: {
+          keyId: signedPreKey.keyId,
+          publicKey: arrayBufferToBase64(signedPreKey.keyPair.pubKey),
+          signature: arrayBufferToBase64(signedPreKey.signature),
+        },
+      }),
+    );
   }
 
   /**
