@@ -22,5 +22,7 @@ COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 
 EXPOSE 80
 
+# Probe 127.0.0.1 (not localhost): nginx listens on IPv4 only, and BusyBox wget
+# would otherwise try localhost's IPv6 (::1) address first and fail.
 HEALTHCHECK --interval=15s --timeout=5s --retries=6 \
-    CMD wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1
+    CMD wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1
