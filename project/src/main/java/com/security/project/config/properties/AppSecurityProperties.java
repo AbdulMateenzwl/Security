@@ -10,6 +10,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param maxFailedLoginAttempts          failed logins before an account is locked
  * @param accountLockDurationMinutes      how long a locked account stays locked (Redis TTL)
  * @param allowedOrigins                  CORS allow-list; wildcards are intentionally not supported
+ * @param trustedProxies                  socket IPs of reverse proxies we trust for {@code
+ *                                        X-Forwarded-For}. Empty (default) means never trust the
+ *                                        header, so a client cannot spoof its IP for per-IP limits.
  * @param disappearingMessageCleanupCron  cron for purging expired messages (used in a later feature)
  */
 @ConfigurationProperties(prefix = "app.security")
@@ -17,6 +20,7 @@ public record AppSecurityProperties(
         int maxFailedLoginAttempts,
         int accountLockDurationMinutes,
         List<String> allowedOrigins,
+        List<String> trustedProxies,
         String disappearingMessageCleanupCron
 ) {
 }

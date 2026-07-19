@@ -12,6 +12,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -58,12 +59,14 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            RateLimiterService rateLimiterService,
                                            RateLimitProperties rateLimitProperties,
-                                           ObjectMapper objectMapper) throws Exception {
+                                           ObjectMapper objectMapper,
+                                           com.security.project.security.ClientIpResolver clientIpResolver)
+            throws Exception {
         // Constructed here (not a bean) so it lives only in the security chain — after the JWT filter,
         // so the authenticated user is available for per-user limits — and is never auto-registered
         // by Boot as a stand-alone servlet filter.
         RateLimitFilter rateLimitFilter =
-                new RateLimitFilter(rateLimiterService, rateLimitProperties, objectMapper);
+                new RateLimitFilter(rateLimiterService, rateLimitProperties, objectMapper, clientIpResolver);
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // Stateless JWT auth — no session cookie, so CSRF does not apply.
@@ -80,7 +83,14 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
-                                .maxAgeInSeconds(31_536_000)))
+                                .maxAgeInSeconds(31_536_000))
+                        // This is a JSON API that never returns HTML, so lock the browser down hard:
+                        // nothing may be loaded, framed, or used as a base URI from an API response.
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'none'; frame-ancestors 'none'; base-uri 'none'"))
+                        .referrerPolicy(ref -> ref.policy(ReferrerPolicy.NO_REFERRER))
+                        .permissionsPolicyHeader(pp -> pp
+                                .policy("geolocation=(), microphone=(), camera=(), payment=(), usb=()")))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();

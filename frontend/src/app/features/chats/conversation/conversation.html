@@ -23,6 +23,14 @@
   <div class="alert alert-error banner">{{ error() }}</div>
 }
 
+@if (safetyNumberChanged()) {
+  <div class="safety-warn banner">
+    <span>⚠️ {{ peer()?.username }}'s safety number changed — they may be on a new device, or the
+      connection could be compromised. Verify it out-of-band before trusting new messages.</span>
+    <button type="button" class="btn btn-ghost sm" (click)="dismissSafetyWarning()">Dismiss</button>
+  </div>
+}
+
 @if (unsupportedGroup()) {
   <div class="notice card">
     <h3>Group encryption not available yet</h3>

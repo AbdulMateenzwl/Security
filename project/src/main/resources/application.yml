@@ -33,7 +33,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      # Redis holds rate-limit + account-lockout state; it must require auth in every environment.
+      # docker-compose sets this same default; override REDIS_PASSWORD in production.
+      password: ${REDIS_PASSWORD:securechat-redis-dev}
       timeout: 2000ms
 
 server:
@@ -81,6 +83,10 @@ app:
     account-lock-duration-minutes: 30
     allowed-origins:
       - http://localhost:4200            # Angular dev server
+    # Socket IPs of reverse proxies allowed to set X-Forwarded-For. Empty = never trust the header
+    # (use the real socket address), so clients can't spoof their IP to dodge per-IP rate limits.
+    # Set to your load balancer / ingress IPs in production.
+    trusted-proxies: []
     disappearing-message-cleanup-cron: "0 */5 * * * *"   # every 5 minutes
 
 management:

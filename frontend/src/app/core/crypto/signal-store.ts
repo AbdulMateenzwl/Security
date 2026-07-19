@@ -37,6 +37,9 @@ function equalBuffers(a: ArrayBuffer, b: ArrayBuffer): boolean {
 export class SignalProtocolStore implements StorageType {
   private db: IDBDatabase | null = null;
 
+  /** Invoked with the address identifier when a peer's identity key changes (device switch / MITM). */
+  onIdentityChanged?: (identifier: string) => void;
+
   constructor(private readonly userId: string) {}
 
   // --- IndexedDB plumbing ------------------------------------------------
@@ -202,7 +205,11 @@ export class SignalProtocolStore implements StorageType {
   async saveIdentity(identifier: string, identityKey: ArrayBuffer): Promise<boolean> {
     const existing = await this.get<ArrayBuffer>(STORE_IDENTITIES, identifier);
     await this.put(STORE_IDENTITIES, identifier, identityKey);
-    return existing !== undefined && !equalBuffers(existing, identityKey);
+    const changed = existing !== undefined && !equalBuffers(existing, identityKey);
+    if (changed) {
+      this.onIdentityChanged?.(identifier);   // surface a "safety number changed" warning in the UI
+    }
+    return changed;
   }
 
   loadPreKey(keyId: string | number): Promise<KeyPairType | undefined> {

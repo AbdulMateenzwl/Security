@@ -13,9 +13,10 @@ services:
     environment:
       POSTGRES_DB: securechat
       POSTGRES_USER: securechat
-      POSTGRES_PASSWORD: securechat
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securechat}
+    # Bind to loopback only so the database is never reachable from outside the host.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - securechat-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,10 +28,12 @@ services:
   redis:
     image: redis:7
     container_name: securechat-redis
+    # Require a password (matches application.yml's REDIS_PASSWORD default) and bind to loopback only.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-securechat-redis-dev}"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-securechat-redis-dev}\" ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 5

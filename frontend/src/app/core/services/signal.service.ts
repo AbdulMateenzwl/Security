@@ -62,6 +62,8 @@ export class SignalService {
   private provisioning: Promise<void> | null = null;
 
   readonly state = signal<ProvisionState>('unknown');
+  /** Peer user ids whose identity key changed since we last saw it (safety number changed). */
+  readonly changedIdentities = signal<ReadonlySet<string>>(new Set());
 
   /** The store for the currently authenticated user, created lazily and cached. */
   private getStore(): SignalProtocolStore {
@@ -71,9 +73,34 @@ export class SignalService {
     }
     if (!this.store || this.storeUserId !== userId) {
       this.store = new SignalProtocolStore(userId);
+      this.store.onIdentityChanged = (identifier) => this.recordIdentityChange(identifier);
       this.storeUserId = userId;
     }
     return this.store;
+  }
+
+  /** Record that a peer's identity changed (from an address identifier like `peerId.deviceId`). */
+  private recordIdentityChange(identifier: string): void {
+    const peerId = identifier.split('.')[0];
+    this.changedIdentities.update((set) => {
+      if (set.has(peerId)) return set;
+      return new Set(set).add(peerId);
+    });
+  }
+
+  /** Whether this peer's identity (safety number) changed and hasn't been acknowledged. */
+  identityChanged(peerUserId: string): boolean {
+    return this.changedIdentities().has(peerUserId);
+  }
+
+  /** Clear the "safety number changed" flag once the user has re-verified / dismissed it. */
+  acknowledgeIdentityChange(peerUserId: string): void {
+    this.changedIdentities.update((set) => {
+      if (!set.has(peerUserId)) return set;
+      const next = new Set(set);
+      next.delete(peerUserId);
+      return next;
+    });
   }
 
   async isProvisioned(): Promise<boolean> {
@@ -272,6 +299,7 @@ export class SignalService {
       if (!(await this.peerIdentityChanged(peerUserId, addr))) {
         return;
       }
+      this.recordIdentityChange(addr);   // flag the safety-number change for the UI banner
       await store.removeSession(addr);
       await store.removeIdentity(addr);
     }

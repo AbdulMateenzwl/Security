@@ -11,7 +11,7 @@ import com.security.project.config.properties.RateLimitProperties;
 import com.security.project.config.properties.RateLimitProperties.Limit;
 import com.security.project.domain.user.entity.User;
 import com.security.project.exception.ErrorResponse;
-import com.security.project.security.HttpRequestUtils;
+import com.security.project.security.ClientIpResolver;
 
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.FilterChain;
@@ -36,13 +36,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final RateLimiterService rateLimiter;
     private final RateLimitProperties props;
     private final ObjectMapper objectMapper;
+    private final ClientIpResolver clientIpResolver;
 
     public RateLimitFilter(RateLimiterService rateLimiter,
                            RateLimitProperties props,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           ClientIpResolver clientIpResolver) {
         this.rateLimiter = rateLimiter;
         this.props = props;
         this.objectMapper = objectMapper;
+        this.clientIpResolver = clientIpResolver;
     }
 
     /** A resolved limit for a request: a bucket name, its limit, and the caller identity to key on. */
@@ -82,10 +85,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String method = request.getMethod();
 
         if ("POST".equals(method) && "/api/auth/login".equals(uri)) {
-            return new Rule("login", props.login(), HttpRequestUtils.clientIp(request));
+            return new Rule("login", props.login(), clientIpResolver.resolve(request));
         }
         if ("POST".equals(method) && "/api/auth/register".equals(uri)) {
-            return new Rule("register", props.register(), HttpRequestUtils.clientIp(request));
+            return new Rule("register", props.register(), clientIpResolver.resolve(request));
+        }
+        if ("POST".equals(method) && "/api/auth/refresh".equals(uri)) {
+            return new Rule("refresh", props.login(), clientIpResolver.resolve(request));
         }
 
         UUID userId = currentUserId();

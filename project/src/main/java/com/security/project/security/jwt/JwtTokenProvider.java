@@ -48,19 +48,22 @@ public class JwtTokenProvider {
 
     /** Mint a short-lived access token bound to the given session. */
     public String generateAccessToken(User user, UUID sessionId) {
-        return buildToken(user, sessionId, TYPE_ACCESS, props.accessExpirationMs());
+        return buildToken(user, sessionId, TYPE_ACCESS, props.accessExpirationMs(), UUID.randomUUID().toString());
     }
 
-    /** Mint a longer-lived refresh token bound to the given session. */
-    public String generateRefreshToken(User user, UUID sessionId) {
-        return buildToken(user, sessionId, TYPE_REFRESH, props.refreshExpirationMs());
+    /**
+     * Mint a longer-lived refresh token bound to the given session and the given {@code jti}. The jti
+     * is stored on the session so it can be rotated and old refresh tokens detected as reuse.
+     */
+    public String generateRefreshToken(User user, UUID sessionId, String jti) {
+        return buildToken(user, sessionId, TYPE_REFRESH, props.refreshExpirationMs(), jti);
     }
 
-    private String buildToken(User user, UUID sessionId, String type, long ttlMs) {
+    private String buildToken(User user, UUID sessionId, String type, long ttlMs, String jti) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + ttlMs);
         return Jwts.builder()
-                .id(UUID.randomUUID().toString())
+                .id(jti)
                 .issuer(props.issuer())
                 .subject(user.getId().toString())
                 .claim(CLAIM_SESSION_ID, sessionId.toString())
@@ -103,6 +106,11 @@ public class JwtTokenProvider {
 
     public String getTokenType(Claims claims) {
         return claims.get(CLAIM_TOKEN_TYPE, String.class);
+    }
+
+    /** The token's unique id (jti) — used to detect refresh-token reuse. */
+    public String getJti(Claims claims) {
+        return claims.getId();
     }
 
     public long getAccessExpirationMs() {

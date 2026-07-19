@@ -72,6 +72,7 @@ Week 8:
 - Feat: added Kanban board integration and connection to backend
 - Added new feature which will record every change (create, status/priority/title/description/due-date changes, assignment) automatically in the database, with service-layer authorization. On Every change, the activity log will be updated with the changes made to the task. This will help in tracking the changes made to the task and will also help in auditing the changes made to the task.
 - Added option for filters for tasks for status and assignee. This will help in filtering the tasks based on the status and assignee. This will help in finding the tasks easily and will also help in tracking the progress of the tasks.
+- Added security hardening — token rotation, IP trust, headers, prod guards. This will help in securing the application and will also help in preventing the attacks on the application.
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -121,6 +122,7 @@ Commit 36: feat: enhance message handling for device provisioning and identity c
 Commit 37: Feat: added Kanban board integration and connection to backend
 Commit 38: feat: Activity Log for Task domain — record every change (create, status/priority/title/description/due-date changes, assignment) automatically in the database, with service-layer authorization
 Commit 39: Feat: Added filters for tasks for status and assignee
+Commit 40: feat: security hardening — token rotation, IP trust, headers, prod guards
 
 
 

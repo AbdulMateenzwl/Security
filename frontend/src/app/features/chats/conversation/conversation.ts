@@ -93,6 +93,19 @@ export class Conversation implements OnDestroy {
     return chat ? chatDisplayName(chat, this.myId) : 'Chat';
   }
 
+  /** True when the peer's identity (safety number) changed — a device switch, or a possible MITM. */
+  safetyNumberChanged(): boolean {
+    const peer = this.peer();
+    return peer ? this.signalService.identityChanged(peer.userId) : false;
+  }
+
+  dismissSafetyWarning(): void {
+    const peer = this.peer();
+    if (peer) {
+      this.signalService.acknowledgeIdentityChange(peer.userId);
+    }
+  }
+
   private async loadConversation(chatId: string): Promise<void> {
     this.teardownLive();
     this.loading.set(true);

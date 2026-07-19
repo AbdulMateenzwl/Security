@@ -3,7 +3,9 @@ package com.security.project.domain.user.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +22,7 @@ import com.security.project.domain.user.dto.RegisterRequest;
 import com.security.project.domain.user.dto.UserDto;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.repository.UserRepository;
+import com.security.project.exception.BadRequestException;
 import com.security.project.exception.DuplicateResourceException;
 
 /**
@@ -34,10 +37,19 @@ public class UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
+    /** At least 8 chars including a letter and a digit — enforced server-side (client checks are bypassable). */
+    private static final Pattern PASSWORD_POLICY = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).{8,128}$");
+    /** A few of the most-guessed passwords, rejected outright regardless of the pattern above. */
+    private static final Set<String> COMMON_PASSWORDS = Set.of(
+            "password", "password1", "12345678", "123456789", "1234567890",
+            "qwerty123", "password123", "11111111", "abcd1234", "iloveyou1");
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redis;
     private final AppSecurityProperties securityProps;
+    /** A valid BCrypt hash used only to spend the same time on a login for a non-existent user. */
+    private final String dummyHash;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -47,11 +59,14 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.redis = redis;
         this.securityProps = securityProps;
+        this.dummyHash = passwordEncoder.encode("timing-equalizer-not-a-real-password");
     }
 
-    /** Register a new user. Pre-checks uniqueness; the DB unique constraints are the final guard. */
+    /** Register a new user. Enforces the password policy, then pre-checks uniqueness (DB constraints
+     *  are the final guard). */
     @Transactional
     public User register(RegisterRequest req) {
+        validatePasswordStrength(req.password());
         if (userRepository.existsByUsername(req.username())) {
             throw new DuplicateResourceException("Username already taken");
         }
@@ -148,6 +163,23 @@ public class UserService {
 
     public boolean passwordMatches(String rawPassword, User user) {
         return passwordEncoder.matches(rawPassword, user.getPasswordHash());
+    }
+
+    /**
+     * Spend roughly the same time hashing as a real password check would, without a user. Called on a
+     * login for a non-existent username so response time doesn't reveal whether the account exists.
+     */
+    public void wastePasswordCompare(String rawPassword) {
+        passwordEncoder.matches(rawPassword == null ? "" : rawPassword, dummyHash);
+    }
+
+    /** Reject weak passwords server-side (length + a letter + a digit, and not a common password). */
+    private void validatePasswordStrength(String password) {
+        if (password == null || !PASSWORD_POLICY.matcher(password).matches()
+                || COMMON_PASSWORDS.contains(password.toLowerCase())) {
+            throw new BadRequestException(
+                    "Password must be 8–128 characters and include at least one letter and one number");
+        }
     }
 
     private String lockoutKey(UUID userId) {

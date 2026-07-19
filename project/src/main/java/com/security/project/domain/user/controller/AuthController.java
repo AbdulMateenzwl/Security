@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import com.security.project.security.HttpRequestUtils;
+import com.security.project.security.ClientIpResolver;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,9 +38,11 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final AuthService authService;
+    private final ClientIpResolver clientIpResolver;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, ClientIpResolver clientIpResolver) {
         this.authService = authService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @PostMapping("/register")
@@ -88,7 +90,7 @@ public class AuthController {
     // --- request metadata helpers -----------------------------------------
 
     private String clientIp(HttpServletRequest request) {
-        return HttpRequestUtils.clientIp(request);
+        return clientIpResolver.resolve(request);
     }
 
     private String userAgent(HttpServletRequest request) {

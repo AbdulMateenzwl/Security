@@ -60,8 +60,12 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest req, String ipAddress, String deviceInfo) {
         // Generic failure for both "no such user" and "wrong password" — prevents account enumeration.
-        User user = userRepository.findByUsername(req.username())
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid username or password"));
+        User user = userRepository.findByUsername(req.username()).orElse(null);
+        if (user == null) {
+            // Spend the same time as a real BCrypt check so response timing doesn't reveal the user exists.
+            userService.wastePasswordCompare(req.password());
+            throw new InvalidCredentialsException("Invalid username or password");
+        }
 
         if (userService.isLockedOut(user)) {
             throw new com.security.project.exception.AccountLockedException(
@@ -77,8 +81,13 @@ public class AuthService {
         return issueTokens(user, ipAddress, deviceInfo);
     }
 
-    /** Exchange a valid refresh token for a fresh access token (the refresh token is reused). */
-    @Transactional(readOnly = true)
+    /**
+     * Exchange a valid refresh token for a fresh access + refresh pair (rotation). The old refresh
+     * token is invalidated: each session tracks the jti of its current refresh token, so presenting a
+     * previously-rotated (stolen or replayed) token is detected as reuse and the whole session is
+     * revoked — forcing re-authentication on both the attacker and the legitimate user.
+     */
+    @Transactional
     public AuthResponse refresh(RefreshRequest req) {
         Claims claims = tokenProvider.parse(req.refreshToken());
         if (!JwtTokenProvider.TYPE_REFRESH.equals(tokenProvider.getTokenType(claims))) {
@@ -91,10 +100,21 @@ public class AuthService {
         if (!session.isActive()) {
             throw new InvalidTokenException("Session revoked or expired");
         }
+        // Reuse detection: only the *current* refresh token (jti) is accepted. An old one means the
+        // token was replayed — revoke the session defensively.
+        if (!tokenProvider.getJti(claims).equals(session.getTokenJti())) {
+            revoke(session);
+            throw new InvalidTokenException("Refresh token reuse detected — session revoked");
+        }
 
         User user = userService.getById(tokenProvider.getUserId(claims));
+        String newJti = UUID.randomUUID().toString();
+        session.setTokenJti(newJti);
+        sessionRepository.save(session);
+
         String accessToken = tokenProvider.generateAccessToken(user, session.getId());
-        return AuthResponse.of(accessToken, req.refreshToken(),
+        String refreshToken = tokenProvider.generateRefreshToken(user, session.getId(), newJti);
+        return AuthResponse.of(accessToken, refreshToken,
                 jwtProps.accessExpirationMs(), UserDto.from(user));
     }
 
@@ -133,16 +153,17 @@ public class AuthService {
     // --- helpers -----------------------------------------------------------
 
     private AuthResponse issueTokens(User user, String ipAddress, String deviceInfo) {
+        String refreshJti = UUID.randomUUID().toString();
         UserSession session = new UserSession();
         session.setUser(user);
-        session.setTokenJti(UUID.randomUUID().toString());
+        session.setTokenJti(refreshJti);   // the jti of the session's current refresh token (rotated on refresh)
         session.setDeviceInfo(truncate(deviceInfo, 255));
         session.setIpAddress(truncate(ipAddress, 45));
         session.setExpiresAt(Instant.now().plusMillis(jwtProps.refreshExpirationMs()));
         session = sessionRepository.save(session);
 
         String accessToken = tokenProvider.generateAccessToken(user, session.getId());
-        String refreshToken = tokenProvider.generateRefreshToken(user, session.getId());
+        String refreshToken = tokenProvider.generateRefreshToken(user, session.getId(), refreshJti);
         return AuthResponse.of(accessToken, refreshToken,
                 jwtProps.accessExpirationMs(), UserDto.from(user));
     }
