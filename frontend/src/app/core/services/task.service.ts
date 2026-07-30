@@ -46,6 +46,11 @@ export class TaskService {
     return this.http.delete<void>(`${this.baseUrl}/tasks/${taskId}`);
   }
 
+  /** Clear the completed (DONE) tasks in a chat. Returns how many were deleted. */
+  deleteCompleted(chatId: string): Observable<{ deleted: number }> {
+    return this.http.delete<{ deleted: number }>(`${this.baseUrl}/chats/${chatId}/tasks/completed`);
+  }
+
   activity(taskId: string): Observable<TaskActivity[]> {
     return this.http.get<TaskActivity[]>(`${this.baseUrl}/tasks/${taskId}/activity`);
   }

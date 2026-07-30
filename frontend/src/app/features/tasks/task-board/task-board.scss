@@ -93,7 +93,7 @@
 .col-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.4rem;
   padding: 0.7rem 0.85rem;
   font-size: 0.82rem;
   font-weight: 600;
@@ -102,11 +102,16 @@
   color: var(--color-text-muted);
 }
 .count {
+  margin-left: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 0 0.5rem;
   font-size: 0.72rem;
+}
+.clear-done {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
 }
 .col-list {
   display: flex;

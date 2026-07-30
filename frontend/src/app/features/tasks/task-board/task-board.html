@@ -47,6 +47,16 @@
         <header class="col-head">
           <span class="col-title">{{ statusLabels[status] }}</span>
           <span class="count">{{ tasksFor(status).length }}</span>
+          @if (status === 'DONE' && board().DONE.length) {
+            <button
+              class="btn btn-ghost sm clear-done"
+              (click)="askClearCompleted()"
+              [disabled]="clearingDone()"
+              title="Delete all completed tasks"
+            >
+              {{ clearingDone() ? 'Clearing…' : 'Clear' }}
+            </button>
+          }
         </header>
 
         <div
@@ -95,6 +105,24 @@
     [members]="members"
     (created)="onCreated($event)"
     (closed)="showCreate.set(false)"
+  />
+}
+
+@if (confirmClear()) {
+  <app-confirm-dialog
+    title="Clear completed tasks"
+    [message]="
+      'Delete ' +
+      completedCount() +
+      (completedCount() === 1 ? ' completed task' : ' completed tasks') +
+      '? This cannot be undone.'
+    "
+    confirmLabel="Delete"
+    busyLabel="Clearing…"
+    [danger]="true"
+    [busy]="clearingDone()"
+    (confirmed)="clearCompleted()"
+    (cancelled)="confirmClear.set(false)"
   />
 }
 

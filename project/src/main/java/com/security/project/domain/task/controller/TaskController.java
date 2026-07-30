@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.security.project.domain.task.dto.CreateTaskRequest;
+import com.security.project.domain.task.dto.DeleteCompletedTasksResponse;
 import com.security.project.domain.task.dto.TaskActivityDto;
 import com.security.project.domain.task.dto.TaskDto;
 import com.security.project.domain.task.dto.UpdateTaskRequest;
@@ -59,6 +60,16 @@ public class TaskController {
     public Map<TaskStatus, List<TaskDto>> board(@AuthenticationPrincipal User user,
                                                 @PathVariable UUID chatId) {
         return taskService.getBoard(user.getId(), chatId);
+    }
+
+    /**
+     * Clear the completed (DONE) tasks in a chat. A chat ADMIN removes every completed task; a regular
+     * member removes only the completed tasks they created. Returns how many were deleted.
+     */
+    @DeleteMapping("/api/chats/{chatId}/tasks/completed")
+    public DeleteCompletedTasksResponse deleteCompleted(@AuthenticationPrincipal User user,
+                                                        @PathVariable UUID chatId) {
+        return taskService.deleteCompletedTasks(user.getId(), chatId);
     }
 
     @GetMapping("/api/tasks/{taskId}")

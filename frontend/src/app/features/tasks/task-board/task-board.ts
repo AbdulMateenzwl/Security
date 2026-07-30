@@ -19,13 +19,14 @@ import {
 } from '../../../core/models/task.models';
 import { extractErrorMessage } from '../../../core/util/api-error';
 import { chatDisplayName } from '../../chats/chat-display';
+import { ConfirmDialog } from '../../../shared/confirm-dialog/confirm-dialog';
 import { TaskDialog } from '../task-dialog/task-dialog';
 
 const emptyBoard = (): TaskBoardModel => ({ TODO: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] });
 
 @Component({
   selector: 'app-task-board',
-  imports: [DragDropModule, RouterLink, DatePipe, TaskDialog],
+  imports: [DragDropModule, RouterLink, DatePipe, TaskDialog, ConfirmDialog],
   templateUrl: './task-board.html',
   styleUrl: './task-board.scss',
 })
@@ -46,6 +47,8 @@ export class TaskBoard implements OnDestroy {
   readonly error = signal<string | null>(null);
   readonly showCreate = signal(false);
   readonly editing = signal<Task | null>(null);
+  readonly clearingDone = signal(false);
+  readonly confirmClear = signal(false);
 
   /** Filters (applied client-side over the full board so drag-drop + realtime keep working).
    *  assignee: '' = everyone, '__me' = current user, otherwise a userId. */
@@ -195,6 +198,38 @@ export class TaskBoard implements OnDestroy {
     next[task.status] = [task, ...next[task.status]];
     this.board.set(next);
     this.realtime.sendTaskUpdate(this.chatId, task.id, 'STATUS_CHANGED');
+  }
+
+  /** Number of completed tasks eligible to clear (drives the confirm message). */
+  completedCount(): number {
+    return this.board().DONE.length;
+  }
+
+  /** Open the confirm dialog for clearing the DONE column. */
+  askClearCompleted(): void {
+    if (this.completedCount() && !this.clearingDone()) this.confirmClear.set(true);
+  }
+
+  /** Confirmed clear of the completed (DONE) column. The backend removes every completed task for
+   *  admins, or only the caller's own completed tasks otherwise, so we refresh from the server. */
+  async clearCompleted(): Promise<void> {
+    if (this.clearingDone()) return;
+    this.clearingDone.set(true);
+    this.error.set(null);
+    try {
+      const { deleted } = await firstValueFrom(this.taskService.deleteCompleted(this.chatId));
+      await this.refresh();
+      if (deleted > 0) {
+        this.realtime.sendTaskUpdate(this.chatId, this.chatId, 'DELETED');
+      } else {
+        this.error.set('No completed tasks were deleted — you can only clear tasks you created unless you are a chat admin.');
+      }
+    } catch (err) {
+      this.error.set(extractErrorMessage(err, 'Could not clear completed tasks.'));
+    } finally {
+      this.clearingDone.set(false);
+      this.confirmClear.set(false);
+    }
   }
 
   onDeleted(taskId: string): void {

@@ -18,6 +18,7 @@ import com.security.project.domain.chat.entity.MemberRole;
 import com.security.project.domain.chat.service.ChatAccessGuard;
 import com.security.project.domain.chat.repository.ChatRepository;
 import com.security.project.domain.task.dto.CreateTaskRequest;
+import com.security.project.domain.task.dto.DeleteCompletedTasksResponse;
 import com.security.project.domain.task.dto.TaskActivityDto;
 import com.security.project.domain.task.dto.TaskDto;
 import com.security.project.domain.task.dto.UpdateTaskRequest;
@@ -190,6 +191,30 @@ public class TaskService {
         // The activity log cascade-deletes with the task, so deletion is recorded in the app log only.
         taskRepository.delete(task);
         log.info("Task id={} deleted by user id={}", taskId, actorId);
+    }
+
+    /**
+     * Bulk-clear the completed ({@link TaskStatus#DONE}) tasks of a chat, returning how many were
+     * removed. Applies the same authorization as single-task deletion, per task: a chat ADMIN clears
+     * every completed task, while a regular member clears only the completed tasks they created.
+     * Non-members get 403. Activity logs and labels cascade-delete with each task at the DB level.
+     */
+    @Transactional
+    public DeleteCompletedTasksResponse deleteCompletedTasks(UUID actorId, UUID chatId) {
+        ChatMember membership = chatAccessGuard.requireMember(chatId, actorId);
+        boolean isAdmin = membership.getRole() == MemberRole.ADMIN;
+
+        List<Task> completed = taskRepository.search(chatId, TaskStatus.DONE, null);
+        List<Task> deletable = completed.stream()
+                .filter(t -> isAdmin || t.getCreatedBy().getId().equals(actorId))
+                .toList();
+
+        if (!deletable.isEmpty()) {
+            taskRepository.deleteAll(deletable);
+        }
+        log.info("Cleared {} completed task(s) from chat id={} by user id={}",
+                deletable.size(), chatId, actorId);
+        return new DeleteCompletedTasksResponse(deletable.size());
     }
 
     // --- internals ---------------------------------------------------------
