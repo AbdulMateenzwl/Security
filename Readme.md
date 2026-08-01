@@ -107,7 +107,7 @@ The Angular dev server proxies `/api` and `/ws` to the backend on `:8080` (see
 | # | Requirement |
 |---|-------------|
 | F1 | Users can **register** and **log in** with a username and password; a JWT access/refresh token pair is issued on success. |
-| F2 | Users can maintain **multiple concurrent sessions** (devices) and can **log out** a single session or **log out everywhere** (revoke all sessions). |
+| F2 | A user has a **single active session**: signing in on any device **revokes all other sessions**, so an account is only ever live on one device at a time. Users can also **log out** the current session or **log out everywhere** (revoke all sessions). |
 | F3 | Each client can **publish its Signal public key material** - identity key, a signed pre-key, and a batch of one-time pre-keys - to the server. |
 | F4 | Any user can **fetch a peer's pre-key bundle** to start an E2E session with someone they have never exchanged keys with. One-time pre-keys are consumed atomically so no two sessions reuse the same key. |
 | F5 | Users can exchange **end-to-end encrypted direct (1:1) messages**; the server stores/forwards only opaque ciphertext. |
@@ -540,6 +540,7 @@ Week 8:
 - Commit 43: feat: add functionality to clear completed tasks in chat
 - Commit 44: https certification added for deployment
 - Commit 45: removed unused group chat functions
+- Commit 46: Session Revoke on login on other device, 1 session per user
 
 
 # Signal Protocol Implementation Errors

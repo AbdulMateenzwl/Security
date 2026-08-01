@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,8 @@ import io.jsonwebtoken.Claims;
  */
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserService userService;
     private final UserRepository userRepository;
@@ -153,6 +157,15 @@ public class AuthService {
     // --- helpers -----------------------------------------------------------
 
     private AuthResponse issueTokens(User user, String ipAddress, String deviceInfo) {
+        // Single active session per user: a fresh login/registration revokes every existing session,
+        // so signing in on a new device immediately invalidates all other devices' access and refresh
+        // tokens (the JWT filter re-checks session.revoked on every request). This also matches the
+        // E2E model — each device holds its own Signal keys, so one live device per account.
+        int revoked = sessionRepository.revokeAllForUser(user.getId(), Instant.now());
+        if (revoked > 0) {
+            log.info("Revoked {} existing session(s) for user id={} on new sign-in", revoked, user.getId());
+        }
+
         String refreshJti = UUID.randomUUID().toString();
         UserSession session = new UserSession();
         session.setUser(user);
