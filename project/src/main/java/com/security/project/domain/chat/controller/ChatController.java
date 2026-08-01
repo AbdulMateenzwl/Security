@@ -15,11 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.security.project.domain.chat.dto.AddMemberRequest;
 import com.security.project.domain.chat.dto.ChatDto;
 import com.security.project.domain.chat.dto.CreateChatRequest;
 import com.security.project.domain.chat.dto.DisappearingTtlRequest;
-import com.security.project.domain.chat.dto.UpdateChatRequest;
 import com.security.project.domain.chat.service.ChatService;
 import com.security.project.domain.user.entity.User;
 
@@ -55,32 +53,10 @@ public class ChatController {
         return chatService.getChat(user.getId(), chatId);
     }
 
-    @PutMapping("/{chatId}")
-    public ChatDto update(@AuthenticationPrincipal User user,
-                          @PathVariable UUID chatId,
-                          @Valid @RequestBody UpdateChatRequest request) {
-        return chatService.updateChat(user.getId(), chatId, request);
-    }
-
     @DeleteMapping("/{chatId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal User user, @PathVariable UUID chatId) {
         chatService.deleteChat(user.getId(), chatId);
-    }
-
-    @PostMapping("/{chatId}/members")
-    public ChatDto addMember(@AuthenticationPrincipal User user,
-                             @PathVariable UUID chatId,
-                             @Valid @RequestBody AddMemberRequest request) {
-        return chatService.addMember(user.getId(), chatId, request);
-    }
-
-    @DeleteMapping("/{chatId}/members/{userId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeMember(@AuthenticationPrincipal User user,
-                             @PathVariable UUID chatId,
-                             @PathVariable UUID userId) {
-        chatService.removeMember(user.getId(), chatId, userId);
     }
 
     @PutMapping("/{chatId}/disappearing-ttl")

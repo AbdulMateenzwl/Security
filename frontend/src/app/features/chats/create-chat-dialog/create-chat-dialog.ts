@@ -2,7 +2,7 @@ import { Component, inject, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { User } from '../../../core/models/auth.models';
-import { Chat, ChatType } from '../../../core/models/chat.models';
+import { Chat } from '../../../core/models/chat.models';
 import { ChatService } from '../../../core/services/chat.service';
 import { UserService } from '../../../core/services/user.service';
 import { extractErrorMessage } from '../../../core/util/api-error';
@@ -22,8 +22,6 @@ export class CreateChatDialog {
   /** Emitted when the user dismisses the dialog. */
   readonly closed = output<void>();
 
-  readonly type = signal<ChatType>('DIRECT');
-  readonly groupName = new FormControl('', { nonNullable: true });
   readonly searchControl = new FormControl('', { nonNullable: true });
 
   readonly results = signal<User[]>([]);
@@ -58,21 +56,9 @@ export class CreateChatDialog {
       });
   }
 
-  setType(type: ChatType): void {
-    this.type.set(type);
-    // Direct chats have exactly one member; drop extras when switching back.
-    if (type === 'DIRECT' && this.selected().length > 1) {
-      this.selected.set([this.selected()[0]]);
-    }
-    this.error.set(null);
-  }
-
   select(user: User): void {
-    if (this.type() === 'DIRECT') {
-      this.selected.set([user]);
-    } else if (!this.selected().some((u) => u.id === user.id)) {
-      this.selected.update((list) => [...list, user]);
-    }
+    // Direct chats have exactly one other participant.
+    this.selected.set([user]);
     this.results.update((list) => list.filter((u) => u.id !== user.id));
     this.searchControl.setValue('');
   }
@@ -83,8 +69,7 @@ export class CreateChatDialog {
 
   get canSubmit(): boolean {
     if (this.submitting()) return false;
-    if (this.type() === 'DIRECT') return this.selected().length === 1;
-    return this.selected().length >= 1 && this.groupName.value.trim().length > 0;
+    return this.selected().length === 1;
   }
 
   submit(): void {
@@ -94,8 +79,8 @@ export class CreateChatDialog {
 
     this.chatService
       .create({
-        type: this.type(),
-        name: this.type() === 'GROUP' ? this.groupName.value.trim() : null,
+        type: 'DIRECT',
+        name: null,
         memberIds: this.selected().map((u) => u.id),
       })
       .subscribe({

@@ -79,11 +79,7 @@ export class Chats implements OnDestroy {
     return chatInitial(chat, this.user()?.id);
   }
 
-  subtitle(chat: Chat): string {
-    if (chat.type === 'GROUP') {
-      const count = chat.members.length;
-      return `${count} member${count === 1 ? '' : 's'}`;
-    }
+  subtitle(_chat: Chat): string {
     return 'Direct message';
   }
 

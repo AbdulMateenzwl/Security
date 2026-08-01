@@ -13,12 +13,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.security.project.domain.chat.dto.AddMemberRequest;
 import com.security.project.domain.chat.dto.ChatDto;
 import com.security.project.domain.chat.dto.ChatMemberDto;
 import com.security.project.domain.chat.dto.CreateChatRequest;
 import com.security.project.domain.chat.dto.DisappearingTtlRequest;
-import com.security.project.domain.chat.dto.UpdateChatRequest;
 import com.security.project.domain.chat.entity.Chat;
 import com.security.project.domain.chat.entity.ChatMember;
 import com.security.project.domain.chat.entity.ChatType;
@@ -59,42 +57,45 @@ public class ChatService {
     }
 
     /**
-     * Create a chat with the caller as its first (ADMIN) member.
+     * Create a DIRECT chat with the caller as its first (ADMIN) member.
      *
-     * <p>DIRECT chats require exactly one other participant and carry no name; GROUP chats require a
-     * name. Listed members are added as MEMBER (duplicates and the creator are ignored).</p>
+     * <p>Only direct chats are supported: {@code memberIds} must contain exactly one other
+     * participant. Group chats are not implemented and are rejected. If a direct chat between the
+     * two users already exists it is returned as-is rather than creating a duplicate.</p>
      */
     @Transactional
     public ChatDto createChat(UUID creatorId, CreateChatRequest req) {
         User creator = userRepository.getByIdOrThrow(creatorId);
 
+        if (req.type() != ChatType.DIRECT) {
+            throw new BadRequestException("Only direct chats are supported");
+        }
+
         // Distinct member ids, excluding the creator (added separately as ADMIN).
         Set<UUID> memberIds = new LinkedHashSet<>(req.memberIds());
         memberIds.remove(creatorId);
+        if (memberIds.size() != 1) {
+            throw new BadRequestException("A direct chat must have exactly one other participant");
+        }
+        UUID otherId = memberIds.iterator().next();
+
+        // Reuse the existing 1:1 conversation instead of creating a duplicate.
+        var existing = chatRepository.findDirectChatsBetween(creatorId, otherId).stream().findFirst();
+        if (existing.isPresent()) {
+            log.info("Reusing existing DIRECT chat id={} between user id={} and id={}",
+                    existing.get().getId(), creatorId, otherId);
+            return toDto(existing.get());
+        }
 
         Chat chat = new Chat();
-        chat.setType(req.type());
+        chat.setType(ChatType.DIRECT);
         chat.setCreatedBy(creator);
-
-        if (req.type() == ChatType.DIRECT) {
-            if (memberIds.size() != 1) {
-                throw new BadRequestException("A direct chat must have exactly one other participant");
-            }
-        } else {
-            if (req.name() == null || req.name().isBlank()) {
-                throw new BadRequestException("A group chat requires a name");
-            }
-            chat.setName(req.name().trim());
-        }
         Chat saved = chatRepository.save(chat);
 
         addMemberInternal(saved, creator, MemberRole.ADMIN);
-        for (UUID memberId : memberIds) {
-            addMemberInternal(saved, userRepository.getByIdOrThrow(memberId), MemberRole.MEMBER);
-        }
+        addMemberInternal(saved, userRepository.getByIdOrThrow(otherId), MemberRole.MEMBER);
 
-        log.info("Created {} chat id={} by user id={} with {} member(s)",
-                req.type(), saved.getId(), creatorId, memberIds.size() + 1);
+        log.info("Created DIRECT chat id={} by user id={} with user id={}", saved.getId(), creatorId, otherId);
         return toDto(saved);
     }
 
@@ -125,56 +126,12 @@ public class ChatService {
         return toDto(loadChat(chatId));
     }
 
-    /** Update a group chat's name/avatar — ADMIN only. */
-    @Transactional
-    public ChatDto updateChat(UUID userId, UUID chatId, UpdateChatRequest req) {
-        chatAccessGuard.requireAdmin(chatId, userId);
-        Chat chat = loadChat(chatId);
-        if (chat.getType() == ChatType.DIRECT) {
-            throw new BadRequestException("Direct chats have no editable name or avatar");
-        }
-        if (req.name() != null) {
-            chat.setName(req.name().isBlank() ? null : req.name().trim());
-        }
-        if (req.avatarUrl() != null) {
-            chat.setAvatarUrl(req.avatarUrl().isBlank() ? null : req.avatarUrl());
-        }
-        log.info("Updated chat id={} by admin id={}", chatId, userId);
-        return toDto(chat);
-    }
-
     /** Delete a chat (cascades to members and messages) — ADMIN only. */
     @Transactional
     public void deleteChat(UUID userId, UUID chatId) {
         chatAccessGuard.requireAdmin(chatId, userId);
         chatRepository.deleteById(chatId);
         log.info("Deleted chat id={} by admin id={}", chatId, userId);
-    }
-
-    /** Add a member to a GROUP chat — ADMIN only. */
-    @Transactional
-    public ChatDto addMember(UUID actorId, UUID chatId, AddMemberRequest req) {
-        chatAccessGuard.requireAdmin(chatId, actorId);
-        Chat chat = loadChat(chatId);
-        if (chat.getType() == ChatType.DIRECT) {
-            throw new BadRequestException("Cannot add members to a direct chat");
-        }
-        if (chatMemberRepository.existsByChatIdAndUserId(chatId, req.userId())) {
-            throw new BadRequestException("User is already a member of this chat");
-        }
-        addMemberInternal(chat, userRepository.getByIdOrThrow(req.userId()), MemberRole.MEMBER);
-        log.info("Added user id={} to chat id={} by admin id={}", req.userId(), chatId, actorId);
-        return toDto(chat);
-    }
-
-    /** Remove a member from a chat — ADMIN only. */
-    @Transactional
-    public void removeMember(UUID actorId, UUID chatId, UUID targetUserId) {
-        chatAccessGuard.requireAdmin(chatId, actorId);
-        ChatMember target = chatMemberRepository.findByChatIdAndUserId(chatId, targetUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User is not a member of this chat"));
-        chatMemberRepository.delete(target);
-        log.info("Removed user id={} from chat id={} by admin id={}", targetUserId, chatId, actorId);
     }
 
     /** Set or clear the disappearing-message timer — ADMIN only. */

@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.security.project.domain.chat.dto.CreateChatRequest;
 import com.security.project.domain.chat.entity.Chat;
+import com.security.project.domain.chat.entity.ChatMember;
 import com.security.project.domain.chat.entity.ChatType;
 import com.security.project.domain.chat.repository.ChatMemberRepository;
 import com.security.project.domain.chat.repository.ChatRepository;
@@ -53,12 +54,32 @@ class ChatServiceTest {
     }
 
     @Test
-    void groupChat_requiresName() {
+    void groupChat_isRejected() {
         stubCreator();
-        CreateChatRequest req = new CreateChatRequest(ChatType.GROUP, "  ", List.of());
+        CreateChatRequest req = new CreateChatRequest(ChatType.GROUP, "Team", List.of(UUID.randomUUID()));
 
         assertThatThrownBy(() -> service.createChat(creator, req))
                 .isInstanceOf(BadRequestException.class);
         verify(chatRepository, never()).save(any(Chat.class));
+    }
+
+    @Test
+    void directChat_reusesExistingConversation() {
+        User creatorUser = new User();
+        creatorUser.setId(creator);
+        when(userRepository.getByIdOrThrow(creator)).thenReturn(creatorUser);
+
+        UUID other = UUID.randomUUID();
+        Chat existing = new Chat();
+        existing.setType(ChatType.DIRECT);
+        existing.setCreatedBy(creatorUser);
+        when(chatRepository.findDirectChatsBetween(creator, other)).thenReturn(List.of(existing));
+
+        CreateChatRequest req = new CreateChatRequest(ChatType.DIRECT, null, List.of(other));
+        service.createChat(creator, req);
+
+        // Existing chat is returned; no new chat and no new members are persisted.
+        verify(chatRepository, never()).save(any(Chat.class));
+        verify(chatMemberRepository, never()).save(any(ChatMember.class));
     }
 }

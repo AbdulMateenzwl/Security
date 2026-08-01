@@ -114,7 +114,7 @@ The Angular dev server proxies `/api` and `/ws` to the backend on `:8080` (see
 | F6 | Users can retrieve **paginated message history** (newest-first, cursor-based) and see **delivery / read receipts**. |
 | F7 | A message **sender can delete** their own message. |
 | F8 | Chats support **disappearing messages** - an optional timer after which messages expire and are hard-deleted from the server. |
-| F9 | Users can create **DIRECT and GROUP chats**, manage group membership, and assign **admin** roles. |
+| F9 | Users can create **direct (1:1) chats** with another user. |
 | F10 | Chats include a **collaboration board**: tasks with status, priority, assignee, due date and labels; a **kanban** view grouped by status; and **filtering** by status/assignee. |
 | F11 | Every task change is automatically recorded in an **activity log** (create, status/priority/title/description/due-date changes, assignment). |
 | F12 | Messages, typing indicators and task changes are delivered in **real time** over WebSocket/STOMP. |
@@ -450,7 +450,7 @@ what I did in the fourth week
 what I did in the fifth week
 - Implement user authentication and session management with JWT support, including user registration, login, and session handling (AI Help from Claude code)
 - Implement Signal key management: store public identity keys, signed pre-keys and one-time pre-keys, and serve pre-key bundles so peers can start end-to-end encrypted sessions. One-time pre-keys are consumed atomically (FOR UPDATE SKIP LOCKED) so no two sessions ever reuse the same key. Server stays a blind relay - public keys only, never verified or decrypted. (AI Help from Claude code)
-- Implement the Chat domain: create DIRECT and GROUP chats, list/get chats, update group info, add/remove members, and set a disappearing-message timer. All authorization (membership + ADMIN role) is enforced in the service layer, returning 403 (never 404) so chat existence is never leaked. (AI Help from Claude code)
+- Implement the Chat domain: create direct (1:1) chats, list/get chats, delete a chat, and set a disappearing-message timer. All authorization (membership + ADMIN role) is enforced in the service layer, returning 403 (never 404) so chat existence is never leaked. (AI Help from Claude code)
 
 # Week 6
 - Implement message handling with DTOs, entity definitions, and database migration for chat functionality, including message status and receipts.
@@ -476,7 +476,7 @@ Week 8:
 - feat: implement login and registration components pages
 - feat: implement chat functionality with user search and chat creation features
 - feat: implement the client-side Signal key-setup (device provisioning) feature - the browser generates the identity key pair, registration id, a signed pre-key and a batch of one-time pre-keys with @privacyresearch/libsignal-protocol-typescript, stores the PRIVATE halves in IndexedDB (per user, never sent to the server), and publishes only the public halves to /api/signal. Real X3DH session establishment + Double Ratchet encrypt/decrypt are wired for the messaging feature; verified with an Alice→Bob round-trip. Added a Security page showing the safety number (identity fingerprint), registration id and remaining one-time pre-keys with replenish/reset, plus auto-provisioning on first sign-in.
-- feat: implement the encrypted messaging view and live delivery - open a DIRECT chat at /chats/:id, decrypt history in ratchet order (cached once locally), and send by encrypting to the peer. Live delivery runs over WebSocket/STOMP (@stomp/stompjs): the client connects to /ws?token=<jwt>, subscribes to /topic/chat/{chatId} and renders peer messages the instant they arrive, with a Live/Connecting indicator, auto-reconnect + re-subscribe, and typing indicators. Sending stays on REST (returns the id so the sender can cache its own plaintext); the socket echo of our own message is de-duplicated by id. Group chats show an "encryption not available yet" notice; the server only ever sees opaque ciphertext. (AI Help)
+- feat: implement the encrypted messaging view and live delivery - open a DIRECT chat at /chats/:id, decrypt history in ratchet order (cached once locally), and send by encrypting to the peer. Live delivery runs over WebSocket/STOMP (@stomp/stompjs): the client connects to /ws?token=<jwt>, subscribes to /topic/chat/{chatId} and renders peer messages the instant they arrive, with a Live/Connecting indicator, auto-reconnect + re-subscribe, and typing indicators. Sending stays on REST (returns the id so the sender can cache its own plaintext); the socket echo of our own message is de-duplicated by id. The server only ever sees opaque ciphertext. (AI Help)
 - feat: add live delivery over WebSocket/STOMP - subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
 - feat: enhance message handling for device provisioning and identity changes 
 - Feat: added Kanban board integration and connection to backend
@@ -503,7 +503,7 @@ Week 8:
 - Commit 7: Implement JWT authentication with access and refresh token support, including user session management and error handling 
 - Commit 8: Implement user authentication and session management with JWT support, including user registration, login, and session handling
 - Commit 9: Implement Signal key management - identity keys, signed pre-keys, one-time pre-keys, and pre-key bundle distribution with atomic OTPK consumption
-- Commit 10: Implement the Chat domain - DIRECT/GROUP chats, membership and admin roles, member management, and disappearing-message timer, with service-layer authorization
+- Commit 10: Implement the Chat domain - direct (1:1) chats, membership and admin roles, and a disappearing-message timer, with service-layer authorization
 - Commit 11: Implement message handling with DTOs, entity definitions, and database migration for chat functionality, including message status and receipts.
 - Commit 12: Implement the Message domain - send encrypted messages, cursor-paginated history, delivery/read receipts, sender-only delete, and disappearing-message expiry
 - Commit 13: Implement task management domain with entities, DTOs, and database migration for in-chat collaboration, including task creation, updates, activity logging, and priority/status handling.
@@ -522,10 +522,10 @@ Week 8:
 - Commit 26: feat: implement authentication service, guards, and token storage
 - Commit 27: feat: implement login and registration components pages
 - Commit 28: feat: add user search endpoint (GET /api/users/search) for starting chats
-- Commit 29: feat: implement chat list and create-chat dialog (direct/group) in the frontend
+- Commit 29: feat: implement chat list and create-chat dialog (direct) in the frontend
 - Commit 30: feat: implement client-side Signal key-setup - browser keygen, IndexedDB private-key store, publish public keys to /api/signal, session + encrypt/decrypt helpers
 - Commit 30: feat: implement chat functionality with user search and chat creation features
-- Commit 31: feat: implement the encrypted messaging view (/chats/:id) - decrypt history in ratchet order with local plaintext caching, encrypt-and-send for direct chats; group chats flagged unsupported
+- Commit 31: feat: implement the encrypted messaging view (/chats/:id) - decrypt history in ratchet order with local plaintext caching, encrypt-and-send for direct chats
 - Commit 32: feat: add live delivery over WebSocket/STOMP - subscribe to /topic/chat/{chatId}, render peer messages instantly with auto-reconnect, plus typing indicators; REST send with id-based echo de-dup
 - Commit 33: updated the connection service and implemented with new service which checks for all the chats
 - Commit 34: feat: enhance authentication flow with token refresh and user identity management
@@ -539,6 +539,7 @@ Week 8:
 - Commit 42: fix: update Dockerfile healthcheck to use 127.0.0.1 instead of localhost for nginx
 - Commit 43: feat: add functionality to clear completed tasks in chat
 - Commit 44: https certification added for deployment
+- Commit 45: removed unused group chat functions
 
 
 # Signal Protocol Implementation Errors

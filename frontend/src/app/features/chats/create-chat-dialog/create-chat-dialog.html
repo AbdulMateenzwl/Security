@@ -9,33 +9,7 @@
       <div class="alert alert-error">{{ error() }}</div>
     }
 
-    <div class="type-toggle">
-      <button
-        type="button"
-        class="toggle-btn"
-        [class.active]="type() === 'DIRECT'"
-        (click)="setType('DIRECT')"
-      >
-        Direct
-      </button>
-      <button
-        type="button"
-        class="toggle-btn"
-        [class.active]="type() === 'GROUP'"
-        (click)="setType('GROUP')"
-      >
-        Group
-      </button>
-    </div>
-
-    @if (type() === 'GROUP') {
-      <div class="form-group">
-        <label for="groupName">Group name</label>
-        <input id="groupName" type="text" [formControl]="groupName" placeholder="e.g. Project team" />
-      </div>
-    }
-
-    <!-- Selected members -->
+    <!-- Selected member -->
     @if (selected().length) {
       <div class="chips">
         @for (u of selected(); track u.id) {
@@ -48,9 +22,7 @@
     }
 
     <div class="form-group">
-      <label for="userSearch">
-        {{ type() === 'DIRECT' ? 'Find a person' : 'Add people' }}
-      </label>
+      <label for="userSearch">Find a person</label>
       <input id="userSearch" type="text" [formControl]="searchControl" placeholder="Search by username or email…" autocomplete="off" />
     </div>
 

@@ -43,9 +43,6 @@
           @if (isUnread(chat)) {
             <span class="unread-dot" title="New message"></span>
           }
-          @if (chat.type === 'GROUP') {
-            <span class="badge">Group</span>
-          }
           <a
             class="row-tasks"
             [routerLink]="['/chats', chat.id, 'tasks']"

@@ -41,27 +41,6 @@
   color: var(--color-text);
 }
 
-.type-toggle {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
-}
-.toggle-btn {
-  flex: 1;
-  padding: 0.5rem;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-.toggle-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
 .chips {
   display: flex;
   flex-wrap: wrap;
