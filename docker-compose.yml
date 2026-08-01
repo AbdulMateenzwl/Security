@@ -1,13 +1,15 @@
-# Full-stack SecureChat deployment: nginx-hosted frontend + Spring Boot backend +
-# PostgreSQL + Redis, all containerized.
+# Full-stack SecureChat deployment: Caddy (HTTPS) + nginx-hosted frontend +
+# Spring Boot backend + PostgreSQL + Redis, all containerized.
 #
-#   ./scripts/gen-secrets.sh     # once — writes .env with strong secrets + JWT keys
-#   docker compose up -d --build # build images and start the whole stack
-#   docker compose ps            # check health
-#   open http://localhost         # the app (nginx) — the only published port
+#   ./scripts/gen-secrets.sh 20-1-2-3.sslip.io   # once — writes .env (secrets, JWT keys, domain)
+#   docker compose up -d --build                 # build images and start the whole stack
+#   docker compose ps                            # check health
+#   open https://20-1-2-3.sslip.io               # the app, over HTTPS
 #
-# Only the frontend (nginx) is published to the host. The backend, database and
-# Redis are reachable only on the internal Docker network.
+# Only Caddy is published to the host (ports 80/443). It terminates TLS with an
+# automatically-issued Let's Encrypt certificate for the sslip.io hostname and
+# reverse-proxies to nginx. The frontend, backend, database and Redis are
+# reachable only on the internal Docker network.
 #
 # NOTE: the backend defaults to the `prod` profile, which refuses to start with
 # default/blank secrets (ProdSecretsValidator). Run gen-secrets.sh first, or set
@@ -74,9 +76,31 @@ services:
     depends_on:
       backend:
         condition: service_started
+    # Not published to the host — only Caddy talks to it, over the internal network.
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: securechat-caddy
+    depends_on:
+      frontend:
+        condition: service_started
     ports:
-      - "${WEB_PORT:-80}:80"
+      - "80:80"
+      - "443:443"
+    environment:
+      # e.g. 20-1-2-3.sslip.io  (your VM's public IP with dots or dashes)
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env, e.g. 20-1-2-3.sslip.io (run ./scripts/gen-secrets.sh <ip>)}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # issued certs + ACME account — persist across restarts
+      - caddy_config:/config
     restart: unless-stopped
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

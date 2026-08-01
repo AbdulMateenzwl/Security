@@ -1,0 +1,20 @@
+# Edge TLS terminator. Caddy automatically obtains and renews a Let's Encrypt
+# certificate for $APP_DOMAIN (a sslip.io hostname, e.g. 20-1-2-3.sslip.io) via
+# the HTTP-01 challenge on port 80, serves HTTPS on 443, redirects HTTP->HTTPS,
+# and reverse-proxies everything (including the /ws WebSocket) to the nginx
+# frontend container. No domain of your own is required — sslip.io resolves
+# <your-vm-ip>.sslip.io to your VM's public IP, and Let's Encrypt will issue a
+# cert for that name.
+
+{
+	# ACME account email (recommended: expiry/renewal notices). Optional.
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode gzip
+
+	# reverse_proxy transparently handles WebSocket upgrades and sets
+	# X-Forwarded-For / X-Forwarded-Proto (https) for the backend.
+	reverse_proxy frontend:80
+}

@@ -538,7 +538,7 @@ Week 8:
 - Commit 41: feat: add Docker deployment configuration and secret generation script
 - Commit 42: fix: update Dockerfile healthcheck to use 127.0.0.1 instead of localhost for nginx
 - Commit 43: feat: add functionality to clear completed tasks in chat
-
+- Commit 44: https certification added for deployment
 
 
 # Signal Protocol Implementation Errors
