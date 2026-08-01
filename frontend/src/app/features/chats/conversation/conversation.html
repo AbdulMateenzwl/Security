@@ -12,12 +12,38 @@
     </div>
   </div>
   <div class="head-actions">
+    @if (!unsupportedGroup() && peer()) {
+      <button class="btn btn-ghost sm" (click)="toggleSafety()" [class.active]="showSafety()"
+              title="Show this chat's safety number">🔐 Safety number</button>
+    }
     @if (chat(); as c) {
       <a class="btn btn-ghost sm" [routerLink]="['/chats', c.id, 'tasks']">Tasks</a>
     }
     <button class="btn btn-ghost sm" (click)="refresh()" [disabled]="loading()">Refresh</button>
   </div>
 </header>
+
+@if (showSafety() && !unsupportedGroup()) {
+  <div class="safety-panel card">
+    <div class="safety-panel-head">
+      <h3>Safety number</h3>
+      <button type="button" class="icon-btn" (click)="toggleSafety()" aria-label="Close">×</button>
+    </div>
+    @if (peerSafetyNumber()) {
+      <code class="safety-code">{{ peerSafetyNumber() }}</code>
+      <p class="text-muted safety-hint">
+        This is {{ peer()?.username }}'s identity-key fingerprint. Compare it with them in person or
+        over another trusted channel — if it matches on both sides, no one is intercepting your
+        messages. It changes only when they switch device or re-provision their keys.
+      </p>
+    } @else {
+      <p class="text-muted safety-hint">
+        {{ peer()?.username }} hasn’t published any encryption keys yet, so there’s no safety number
+        to show.
+      </p>
+    }
+  </div>
+}
 
 @if (error()) {
   <div class="alert alert-error banner">{{ error() }}</div>

@@ -541,6 +541,7 @@ Week 8:
 - Commit 44: https certification added for deployment
 - Commit 45: removed unused group chat functions
 - Commit 46: Session Revoke on login on other device, 1 session per user
+- Commit 47: added safety number in the chat 
 
 
 # Signal Protocol Implementation Errors

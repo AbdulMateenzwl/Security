@@ -8,6 +8,7 @@ import { ChatService } from '../../../core/services/chat.service';
 import { MessageService } from '../../../core/services/message.service';
 import { RealtimeService } from '../../../core/services/realtime.service';
 import { SignalService } from '../../../core/services/signal.service';
+import { UserService } from '../../../core/services/user.service';
 import { Chat, ChatMember } from '../../../core/models/chat.models';
 import { Message } from '../../../core/models/message.models';
 import { TypingEvent } from '../../../core/models/realtime.models';
@@ -38,6 +39,7 @@ export class Conversation implements OnDestroy {
   private readonly chatService = inject(ChatService);
   private readonly messageService = inject(MessageService);
   private readonly signalService = inject(SignalService);
+  private readonly users = inject(UserService);
   private readonly realtime = inject(RealtimeService);
 
   private readonly scrollContainer = viewChild<ElementRef<HTMLElement>>('scrollContainer');
@@ -50,6 +52,10 @@ export class Conversation implements OnDestroy {
   readonly sending = signal(false);
   readonly unsupportedGroup = signal(false);
   readonly peerTyping = signal(false);
+  /** The peer's identity-key fingerprint (safety number), formatted for display, or null. */
+  readonly peerSafetyNumber = signal<string | null>(null);
+  /** Whether the safety-number panel is expanded in the chat. */
+  readonly showSafety = signal(false);
   /** Whether older history pages may still exist (last page came back full). */
   readonly hasMore = signal(false);
   /** A backward page is in flight (drives the top spinner and guards re-entry). */
@@ -106,12 +112,29 @@ export class Conversation implements OnDestroy {
     }
   }
 
+  /** Show/hide the safety-number panel. */
+  toggleSafety(): void {
+    this.showSafety.update((v) => !v);
+  }
+
+  /** Load the peer's identity-key fingerprint (safety number) and format it for display. */
+  private async loadPeerSafetyNumber(peerUserId: string): Promise<void> {
+    try {
+      const { fingerprint } = await firstValueFrom(this.users.fingerprint(peerUserId));
+      this.peerSafetyNumber.set(fingerprint ? SignalService.formatFingerprint(fingerprint) : null);
+    } catch {
+      this.peerSafetyNumber.set(null);
+    }
+  }
+
   private async loadConversation(chatId: string): Promise<void> {
     this.teardownLive();
     this.loading.set(true);
     this.error.set(null);
     this.unsupportedGroup.set(false);
     this.peerTyping.set(false);
+    this.peerSafetyNumber.set(null);
+    this.showSafety.set(false);
     this.hasMore.set(false);
     this.loadingOlder.set(false);
     this.hasHiddenHistory.set(false);
@@ -137,6 +160,8 @@ export class Conversation implements OnDestroy {
         this.loading.set(false);
         return;
       }
+      // Fetch the peer's safety number in the background — a failure here must not block the chat.
+      void this.loadPeerSafetyNumber(peer.userId);
 
       const history = await firstValueFrom(
         this.messageService.history(chatId, undefined, Conversation.PAGE_SIZE),
