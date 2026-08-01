@@ -1,7 +1,7 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
-import { User } from '../../../core/models/auth.models';
+import { UserSummary } from '../../../core/models/auth.models';
 import { Chat } from '../../../core/models/chat.models';
 import { ChatService } from '../../../core/services/chat.service';
 import { UserService } from '../../../core/services/user.service';
@@ -24,8 +24,8 @@ export class CreateChatDialog {
 
   readonly searchControl = new FormControl('', { nonNullable: true });
 
-  readonly results = signal<User[]>([]);
-  readonly selected = signal<User[]>([]);
+  readonly results = signal<UserSummary[]>([]);
+  readonly selected = signal<UserSummary[]>([]);
   readonly searching = signal(false);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
@@ -39,7 +39,7 @@ export class CreateChatDialog {
           const query = q.trim();
           if (query.length < 1) {
             this.searching.set(false);
-            return [[] as User[]];
+            return [[] as UserSummary[]];
           }
           this.searching.set(true);
           return this.userService.search(query);
@@ -56,14 +56,14 @@ export class CreateChatDialog {
       });
   }
 
-  select(user: User): void {
+  select(user: UserSummary): void {
     // Direct chats have exactly one other participant.
     this.selected.set([user]);
     this.results.update((list) => list.filter((u) => u.id !== user.id));
     this.searchControl.setValue('');
   }
 
-  remove(user: User): void {
+  remove(user: UserSummary): void {
     this.selected.update((list) => list.filter((u) => u.id !== user.id));
   }
 

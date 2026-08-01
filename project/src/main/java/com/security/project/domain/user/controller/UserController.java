@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.security.project.domain.user.dto.FingerprintResponse;
-import com.security.project.domain.user.dto.UserDto;
+import com.security.project.domain.user.dto.UserSummaryDto;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.service.UserService;
 
@@ -37,7 +37,7 @@ public class UserController {
      * empty list. Results are capped server-side.
      */
     @GetMapping("/search")
-    public List<UserDto> search(@AuthenticationPrincipal User user, @RequestParam("q") String q) {
+    public List<UserSummaryDto> search(@AuthenticationPrincipal User user, @RequestParam("q") String q) {
         return userService.search(q, user.getId());
     }
 

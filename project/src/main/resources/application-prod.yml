@@ -18,3 +18,12 @@ app:
   security:
     allowed-origins:
       - ${FRONTEND_ORIGIN:https://securechat.example.com}
+    # The backend only ever receives traffic via the reverse proxy (Caddy -> nginx -> backend) on the
+    # internal Docker network, whose container IPs are dynamic. Trust the private ranges so the real
+    # client IP is read from X-Forwarded-For — otherwise every request looks like it comes from the
+    # nginx container and the per-IP login/register limits collapse into one shared bucket.
+    trusted-proxies:
+      - 127.0.0.1/32
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16

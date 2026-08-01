@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Inbound payload for {@code SEND /app/chat.send}: an encrypted message to relay to a chat.
@@ -19,6 +20,7 @@ public record WebSocketMessage(
         UUID chatId,
 
         @NotEmpty
+        @Size(max = 65536)
         byte[] ciphertext,
 
         int ciphertextType,

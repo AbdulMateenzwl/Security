@@ -7,6 +7,12 @@ export interface User {
   createdAt: string;
 }
 
+/** Minimal user projection returned by search — mirrors the backend UserSummaryDto (no email). */
+export interface UserSummary {
+  id: string;
+  username: string;
+}
+
 /** Successful authentication result — mirrors the backend AuthResponse. */
 export interface AuthResponse {
   accessToken: string;

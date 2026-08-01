@@ -13,9 +13,10 @@ interface SubEntry {
 /**
  * Single STOMP-over-WebSocket connection to the backend for realtime delivery.
  *
- * Connects to `/ws?token=<accessToken>` (the handshake auth the backend expects) and relays broker
- * messages to subscribers. Subscriptions are tracked so they can be re-established automatically
- * after a reconnect (stomp.js does not resubscribe on its own).
+ * Connects to `/ws` and authenticates by sending the access token in the STOMP CONNECT frame
+ * (`Authorization: Bearer …`), not in the URL — so the token never lands in proxy/access logs or
+ * browser history. Subscriptions are tracked so they can be re-established automatically after a
+ * reconnect (stomp.js does not resubscribe on its own).
  *
  * Note: message *sending* still goes over REST (which returns the saved id synchronously so the
  * sender can cache its own plaintext); this socket is used for live *receiving* and typing.
@@ -37,13 +38,19 @@ export class RealtimeService {
     if (!token) return;
 
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`;
+    const url = `${proto}://${location.host}/ws`;
 
     this.client = new Client({
       brokerURL: url,
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      // Carry the token in the CONNECT frame (inside the WS payload), refreshed before every
+      // (re)connect so a reconnect after the access token rotated uses the current one.
+      beforeConnect: (client) => {
+        const current = this.storage.accessToken;
+        client.connectHeaders = current ? { Authorization: `Bearer ${current}` } : {};
+      },
       onConnect: () => {
         this.connected.set(true);
         this.resubscribeAll();

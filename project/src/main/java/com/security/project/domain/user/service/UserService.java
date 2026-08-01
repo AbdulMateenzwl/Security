@@ -19,7 +19,7 @@ import org.springframework.data.domain.Limit;
 import com.security.project.config.properties.AppSecurityProperties;
 import com.security.project.domain.user.dto.FingerprintResponse;
 import com.security.project.domain.user.dto.RegisterRequest;
-import com.security.project.domain.user.dto.UserDto;
+import com.security.project.domain.user.dto.UserSummaryDto;
 import com.security.project.domain.user.entity.User;
 import com.security.project.domain.user.repository.UserRepository;
 import com.security.project.exception.BadRequestException;
@@ -67,11 +67,10 @@ public class UserService {
     @Transactional
     public User register(RegisterRequest req) {
         validatePasswordStrength(req.password());
-        if (userRepository.existsByUsername(req.username())) {
-            throw new DuplicateResourceException("Username already taken");
-        }
-        if (userRepository.existsByEmail(req.email())) {
-            throw new DuplicateResourceException("Email already registered");
+        // Generic message for both checks so registration can't be used to enumerate which usernames
+        // or emails already exist (the DB unique constraints are the final, race-safe guard).
+        if (userRepository.existsByUsername(req.username()) || userRepository.existsByEmail(req.email())) {
+            throw new DuplicateResourceException("That username or email is already in use");
         }
         User user = new User();
         user.setUsername(req.username());
@@ -94,7 +93,7 @@ public class UserService {
      * table. The term is escaped so {@code %} and {@code _} typed by the user are treated literally.
      */
     @Transactional(readOnly = true)
-    public List<UserDto> search(String query, UUID currentUserId) {
+    public List<UserSummaryDto> search(String query, UUID currentUserId) {
         String trimmed = query == null ? "" : query.trim();
         if (trimmed.isEmpty()) {
             return List.of();
@@ -103,7 +102,7 @@ public class UserService {
         return userRepository
                 .searchByUsernameOrEmail(term, currentUserId, Limit.of(20))
                 .stream()
-                .map(UserDto::from)
+                .map(UserSummaryDto::from)
                 .toList();
     }
 

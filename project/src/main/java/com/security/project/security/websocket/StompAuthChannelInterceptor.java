@@ -1,7 +1,6 @@
 package com.security.project.security.websocket;
 
 import java.security.Principal;
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.messaging.Message;
@@ -29,7 +28,7 @@ import io.jsonwebtoken.Claims;
  * Enforces WebSocket security on the inbound STOMP channel.
  *
  * <ul>
- *   <li><b>CONNECT</b> — validates the token captured at handshake (same rules as the HTTP filter:
+ *   <li><b>CONNECT</b> — validates the token from the frame's Authorization header (same rules as the HTTP filter:
  *       access token, active session, existing unlocked user) and binds the authenticated user id to
  *       the STOMP session. A bad/missing token aborts the connection with a STOMP ERROR frame.</li>
  *   <li><b>SUBSCRIBE</b> — authorizes the destination: {@code /topic/chat/{chatId}} (and its
@@ -74,8 +73,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private Authentication authenticate(StompHeaderAccessor accessor) {
-        Map<String, Object> attrs = accessor.getSessionAttributes();
-        String token = attrs == null ? null : (String) attrs.get(JwtHandshakeInterceptor.TOKEN_ATTRIBUTE);
+        // The access token is sent in the CONNECT frame's Authorization header (never in the URL, so
+        // it can't leak into proxy access logs or browser history).
+        String token = bearerToken(accessor.getFirstNativeHeader("Authorization"));
         if (token == null) {
             throw new MessagingException("Missing authentication token");
         }
@@ -94,15 +94,21 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             if (user.isAccountLocked()) {
                 throw new MessagingException("Account locked");
             }
-            // The token is only needed to authenticate CONNECT. Drop it from the session so it can
-            // never leak — e.g. into a logged message dump when a later frame fails.
-            attrs.remove(JwtHandshakeInterceptor.TOKEN_ATTRIBUTE);
             // Principal name = user id, which @MessageMapping handlers and subscription checks read.
             return new UsernamePasswordAuthenticationToken(
                     user.getId().toString(), null, user.getAuthorities());
         } catch (ApiException ex) {
             throw new MessagingException("Authentication failed");
         }
+    }
+
+    /** Extract the raw JWT from a {@code Bearer <token>} header value, or null. */
+    private String bearerToken(String header) {
+        if (header != null && header.startsWith("Bearer ")) {
+            String token = header.substring("Bearer ".length()).trim();
+            return token.isEmpty() ? null : token;
+        }
+        return null;
     }
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
