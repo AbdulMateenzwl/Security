@@ -87,20 +87,28 @@ public class UserService {
         return userRepository.getByIdOrThrow(id);
     }
 
+    /** Shortest query accepted — below this the caller is fishing, not looking for someone. */
+    public static final int MIN_QUERY_LENGTH = 3;
+
+    /** Hard cap on results, so a broad term reveals as little of the user table as possible. */
+    private static final int MAX_RESULTS = 3;
+
     /**
      * Search users by username or email (case-insensitive substring) to start a chat, excluding the
-     * caller. A blank query returns nothing; results are capped so a short query can't enumerate the
-     * table. The term is escaped so {@code %} and {@code _} typed by the user are treated literally.
+     * caller. Queries shorter than {@link #MIN_QUERY_LENGTH} characters return nothing, and results
+     * are capped at {@link #MAX_RESULTS} — together these keep the endpoint from being walked to
+     * enumerate the user table (see also the per-user {@code user-search} rate limit). The term is
+     * escaped so {@code %} and {@code _} typed by the user are treated literally.
      */
     @Transactional(readOnly = true)
     public List<UserSummaryDto> search(String query, UUID currentUserId) {
         String trimmed = query == null ? "" : query.trim();
-        if (trimmed.isEmpty()) {
+        if (trimmed.length() < MIN_QUERY_LENGTH) {
             return List.of();
         }
         String term = "%" + trimmed.toLowerCase().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
         return userRepository
-                .searchByUsernameOrEmail(term, currentUserId, Limit.of(20))
+                .searchByUsernameOrEmail(term, currentUserId, Limit.of(MAX_RESULTS))
                 .stream()
                 .map(UserSummaryDto::from)
                 .toList();

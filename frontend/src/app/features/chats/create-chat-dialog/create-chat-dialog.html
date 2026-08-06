@@ -23,12 +23,16 @@
 
     <div class="form-group">
       <label for="userSearch">Find a person</label>
-      <input id="userSearch" type="text" [formControl]="searchControl" placeholder="Search by username or email…" autocomplete="off" />
+      <input id="userSearch" type="text" [formControl]="searchControl" placeholder="Search by username or email…" autocomplete="off" [attr.minlength]="minQueryLength" />
     </div>
 
     <!-- Search results -->
     <div class="results">
-      @if (searching()) {
+      @if (searchError()) {
+        <p class="text-muted result-note">{{ searchError() }}</p>
+      } @else if (queryTooShort()) {
+        <p class="text-muted result-note">Type at least {{ minQueryLength }} characters to search.</p>
+      } @else if (searching()) {
         <p class="text-muted result-note">Searching…</p>
       } @else if (searchControl.value.trim() && !results().length) {
         <p class="text-muted result-note">No users found.</p>

@@ -33,8 +33,9 @@ public class UserController {
     }
 
     /**
-     * Search users by username prefix to start a chat. Excludes the caller; a blank query returns an
-     * empty list. Results are capped server-side.
+     * Search users by username or email to start a chat. Excludes the caller; queries shorter than
+     * {@link UserService#MIN_QUERY_LENGTH} characters return an empty list. Results are capped
+     * server-side and the endpoint is rate limited per user.
      */
     @GetMapping("/search")
     public List<UserSummaryDto> search(@AuthenticationPrincipal User user, @RequestParam("q") String q) {

@@ -166,7 +166,8 @@ in §6 (Security Design Rationale) below.
 - SR14 - Authorization failures return **403** and the check is centralised so it cannot drift or be forgotten on any entry point (REST or WebSocket).
 
 **Availability / Abuse Resistance**
-- SR15 - Sensitive endpoints are **rate-limited** (per-IP for login/register/refresh, per-user for messaging/pre-keys), with Redis-backed buckets.
+- SR15 - Sensitive endpoints are **rate-limited** (per-IP for login/register/refresh, per-user for messaging/pre-keys/user-search), with Redis-backed buckets.
+- SR15a - User search must not become a **directory-enumeration** oracle: it requires a minimum query length, returns a hard-capped number of results, and is rate-limited per user.
 - SR16 - The client IP used for per-IP limits must **not be spoofable** - `X-Forwarded-For` is trusted only from configured trusted proxies.
 
 **Transport & Configuration**
@@ -485,6 +486,7 @@ Week 8:
 - Added a "clear completed tasks" feature - a single action on the board that deletes all the completed (DONE) tasks in a chat at once, so the board can be tidied without deleting them one by one. The same delete authorization applies: a chat admin clears every completed task, while a regular member clears only the completed tasks they created. The DONE column shows a Clear button (with a confirm), and other members' boards refresh live over WebSocket.
 - Added security hardening - token rotation, IP trust, headers, prod guards. This will help in securing the application and will also help in preventing the attacks on the application.
 - Dockerized the application and added Docker deployment configuration and secret generation script. This will help in deploying the application easily and will also help in managing the secrets easily.
+- Hardened the user-search endpoint against directory enumeration. Previously any logged-in user could search with a single character and get back up to 20 accounts per call, with no throttling - repeated across the alphabet that is enough to scrape a large part of the user table (usernames *and* email substrings), which is exactly the reconnaissance step before a targeted phishing or credential-stuffing attempt. Search now requires at least 3 characters, returns at most 3 matches, and is rate-limited to 30 searches per minute per user through the same Redis/Bucket4j buckets as the other limited endpoints. The intent is that search stays useful when you already know who you are looking for, but is useless for browsing the directory. (AI Help from Claude code)
 
 ### Resources
 - [Spring Boot starter](https://start.spring.io/)
@@ -542,6 +544,7 @@ Week 8:
 - Commit 45: removed unused group chat functions
 - Commit 46: Session Revoke on login on other device, 1 session per user
 - Commit 47: added safety number in the chat 
+- Commit 48: Harden user search against enumeration - 3-character minimum, 3-result cap, and a per-user 30/min rate limit
 
 
 # Signal Protocol Implementation Errors

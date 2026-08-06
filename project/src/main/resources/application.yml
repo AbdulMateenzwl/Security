@@ -77,6 +77,10 @@ app:
       capacity: 10
       refill-tokens: 10
       refill-duration-seconds: 3600      # 10 pre-key bundle fetches per hour, per user
+    user-search:
+      capacity: 30
+      refill-tokens: 30
+      refill-duration-seconds: 60        # 30 user searches per minute, per user
 
   security:
     max-failed-login-attempts: 5

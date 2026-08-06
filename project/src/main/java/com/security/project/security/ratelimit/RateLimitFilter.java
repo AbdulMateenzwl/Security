@@ -104,6 +104,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if ("GET".equals(method) && uri.startsWith("/api/signal/pre-key-bundle/")) {
             return new Rule("pre-key-fetch", props.preKeyFetch(), userId.toString());
         }
+        if ("GET".equals(method) && "/api/users/search".equals(uri)) {
+            return new Rule("user-search", props.userSearch(), userId.toString());
+        }
         if (uri.startsWith("/api/")) {
             return new Rule("default", DEFAULT_LIMIT, userId.toString());
         }

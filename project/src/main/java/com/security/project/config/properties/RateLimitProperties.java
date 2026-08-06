@@ -13,7 +13,8 @@ public record RateLimitProperties(
         Limit login,
         Limit register,
         Limit messageSend,
-        Limit preKeyFetch
+        Limit preKeyFetch,
+        Limit userSearch
 ) {
     public record Limit(int capacity, int refillTokens, int refillDurationSeconds) {
     }
